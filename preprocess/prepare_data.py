@@ -19,6 +19,19 @@ def rotate(img, landmark, angle):
                  int(rot_mat[1][0]*x+rot_mat[1][1]*y+rot_mat[1][2])) for (x, y) in landmark])
     return rotated_img, rotated_landmarks
 
+def safe_rotate(img, landmark, angle):
+    """
+    fallback to a rotation that is not out of bound
+    """
+    rimg, rlmk = rotate(img, landmark, angle)
+    h, w = rimg.shape[0], rimg.shape[1]
+    for lm in rlmk:
+        x, y = lm 
+        if x < 0 or x > w or y < 0 or y > h:
+            # print('rotation went out of frame when rotate', angle , 'fallback to rotate only ', fallback_angle, 'x vs w, y vs h', x, w, y, h)
+            # return rotate(img, landmark, fallback_angle)
+            return img, landmark
+    return rimg, rlmk
 
 def flip_indices():
     """
@@ -69,7 +82,7 @@ def load_img(img_path):
     # crop
     return img
 
-def crop(img, lmks):
+def crop(img, lmks, crop_offset=CROP_OFFSET):
     
     min_y, max_y = lmks[:,1].min(), lmks[:,1].max()
     min_x, max_x = lmks[:,0].min(), lmks[:,0].max() 
@@ -81,7 +94,7 @@ def crop(img, lmks):
     min_x = min_x if min_x > 0 else 0
     max_x = max_x if max_x < img.shape[1] else img.shape[1]
     max_y = max_y if max_y < img.shape[0] else img.shape[0]
-    print ('crop bound ', min_y, min_x, (max_x - min_x), (max_y - min_y))
+    # print ('crop bound ', min_y, min_x, (max_x - min_x), (max_y - min_y))
     img = img[min_y:max_y, min_x:max_x]
     # crop lmks
     lmks = lmks - np.array([min_x, min_y])
@@ -111,11 +124,12 @@ def resize_lmks(img, lmks, img_size):
     # lmks = warp(np.ascontiguousarray(lmks[:, [1, 0]]), trafo.inverse, output_shape=target_shape)[:, [1, 0]]
     return lmks
 
+# def ensure_lmk_in_bound(lmks, w, h):
 def read_data(lmk_xml, augment = True):    
     base_dir = os.path.dirname(lmk_xml)
     points, img_sizes, imgs = load_landmarks(lmk_xml)    
     img_size = IMAGE_SIZE
-    no_augmented = 3
+    no_augmented = 4
     data = np.ndarray((len(imgs) * no_augmented, img_size, img_size), dtype=np.float32)
     labels = np.ndarray((len(imgs)* no_augmented, *points[0].shape), dtype=np.int32)
 
@@ -127,6 +141,7 @@ def read_data(lmk_xml, augment = True):
         return img, lmks
 
     for i in range(0, len(imgs)):        
+        # if not i == 1: continue
         img_path = os.path.join(base_dir, imgs[i])
         _, _, bound= img_sizes[i]
 
@@ -136,16 +151,33 @@ def read_data(lmk_xml, augment = True):
         img, lmks = crop_and_resize(original_im, original_lmks, img_size)        
         fl_img, fl_lmks = flip(img, lmks)        
         # view_img(img, lmks)
-        # print ('im size = ', im.shape, ' original ', original_im.shape)
 
-        rot_img, rot_lmk = rotate(original_im, original_lmks, random.choice([10, -10, 15, -15, 25, -25]))        
+        # print ('im size = ', im.shape, ' original ', original_im.shape)
+        # make sure that face is at the center
+        # original_im, original_lmks = crop(original_im, original_lmks, 0.4)
+        rot_img, rot_lmk = safe_rotate(original_im, original_lmks, random.choice([5, 10, 15, 20]))        
         # view_img(rot_img, rot_lmk)
         rot_img, rot_lmk = crop_and_resize(rot_img, rot_lmk, img_size)
+
+        rot_img_ccw, rot_lmk_ccw = safe_rotate(original_im, original_lmks, random.choice([-5, -10, -15, -20]))        
         # view_img(rot_img, rot_lmk)
-        for idx, gen_img in enumerate([(img, lmks), (fl_img, fl_lmks), (rot_img, rot_lmk)]):
+        rot_img_ccw, rot_lmk_ccw = crop_and_resize(rot_img_ccw, rot_lmk_ccw, img_size)
+
+
+        # view_img(rot_img, rot_lmk)
+        for idx, gen_img in enumerate([(img, lmks), (fl_img, fl_lmks), (rot_img, rot_lmk), (rot_img_ccw, rot_lmk_ccw)]):
             data[i * no_augmented + idx] = gen_img[0]
             labels[i * no_augmented + idx] = gen_img[1]
+            # w, h = gen_img[0].shape[1], gen_img[0].shape[0]
+            # for lm in gen_img[1]:
+            #     x, y = lm 
+            #     if x < 0 or x > w or y < 0 or y > h:
+            #         print('x vs w, y vs h', x, w, y, h, 'at pos ', idx)
+            #         break
             # view_img(gen_img[0], gen_img[1])
+        # return None
+        if i % 300 == 0:
+            print('processed ', (i+1), '/', len(imgs), ' images')
     return data, labels
 
 def randomize(dataset, labels):
@@ -173,7 +205,7 @@ if __name__ == '__main__':
     # preprocess train data
     preprocess('/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/labels_ibug_300W_train.xml', '../data')
     # preprocess test data
-    # preprocess('/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/labels_ibug_300W_test.xml')
+    preprocess('/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/labels_ibug_300W_test.xml', '../data')
     # t = '/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/245871800_1.jpg'
     # im = load_img(t)
     # print (im.shape)

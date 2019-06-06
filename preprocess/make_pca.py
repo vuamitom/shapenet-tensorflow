@@ -134,7 +134,11 @@ def load_landmarks(lmk_xml):
         for p in box.iter('part'):
             # xs.append(int(p.get('x')))
             # ys.append(int(p.get('y')))
-            xy.append((int(p.get('x')), int(p.get('y'))))
+            sp = (int(p.get('x')), int(p.get('y')))
+            if sp[0] < 0 or sp[1] < 0:
+                print('--------------------AAAA----------')
+            xy.append(sp)
+
         # xs = np.array(xs, dtype=np.int32).reshape((-1, 1))
         # ys = np.array(ys, dtype=np.int32).reshape((-1, 1))
         # points.append(np.hstack([xs, ys]))
