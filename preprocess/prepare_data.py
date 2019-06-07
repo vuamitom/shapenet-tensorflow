@@ -197,8 +197,8 @@ def preprocess(lmk_xml, output_dir):
     # shuffle
     data, labels = randomize(data, labels)    
     # visualize to test after randomize
-    view_img(data[1], labels[1])
-    np.savez(save_f, data=data, labels=labels)
+    # view_img(data[1], labels[1])
+    np.savez_compressed(save_f, data=data, labels=labels)
 
 
 if __name__ == '__main__':

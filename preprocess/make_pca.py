@@ -82,15 +82,16 @@ def make_pca(landmarks, scale = True, center = True):
     landmarks_transposed = landmarks.transpose((0, 2, 1))
 
     reshaped = landmarks_transposed.reshape(landmarks.shape[0], -1)
-
+    print('reshaped shape = ', reshaped.shape)
     pca = PCA()
     pca.fit(reshaped)
+    print('PCA shape = ', pca.components_.shape, ' mean ', pca.mean_.shape)
 
     if scale:
         components = pca.components_ * pca.singular_values_.reshape(-1, 1)
     else:
         components = pca.components_
-
+    # print('test' , np.array([pca.mean_] + list(components)).shape)
     return np.array([pca.mean_] + list(components)).reshape(
         components.shape[0] + 1,
         *landmarks_transposed.shape[1:]).transpose(0, 2, 1)
@@ -135,8 +136,7 @@ def load_landmarks(lmk_xml):
             # xs.append(int(p.get('x')))
             # ys.append(int(p.get('y')))
             sp = (int(p.get('x')), int(p.get('y')))
-            if sp[0] < 0 or sp[1] < 0:
-                print('--------------------AAAA----------')
+            # if sp[0] < 0 or sp[1] < 0:
             xy.append(sp)
 
         # xs = np.array(xs, dtype=np.int32).reshape((-1, 1))
