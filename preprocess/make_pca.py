@@ -138,10 +138,6 @@ def load_landmarks(lmk_xml):
             sp = (int(p.get('x')), int(p.get('y')))
             # if sp[0] < 0 or sp[1] < 0:
             xy.append(sp)
-
-        # xs = np.array(xs, dtype=np.int32).reshape((-1, 1))
-        # ys = np.array(ys, dtype=np.int32).reshape((-1, 1))
-        # points.append(np.hstack([xs, ys]))
         points.append(np.array(xy, dtype=np.int32))
         img_names.append(img.get('file'))
         bound = (int(box.get('top')), int(box.get('left')), int(box.get('width')), int(box.get('height')))
