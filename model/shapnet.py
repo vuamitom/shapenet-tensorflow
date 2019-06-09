@@ -9,10 +9,10 @@ N_DIMENS = 2
 def shape_layer(shape_mean, components, features):
     """ shapes: eigen shape obtained by PCA
         features: features extracted from image """    
-    batch_size = features.shape[0]
+    batch_size = tf.shape(features)[0]
     expanded_components = tf.broadcast_to(components, [batch_size, *components.shape], name='expanded_components')
     # print('components tensor ', expanded_components)
-    features = tf.broadcast_to(features, expanded_components.shape)
+    features = tf.broadcast_to(features, tf.shape(expanded_components))
     # print('feature tensor ', features)
     weighted_components = tf.multiply(expanded_components, features, name="weighted_components")
 
@@ -27,7 +27,7 @@ def transform_layer(shapes, transform_params):
         indices[k] = (c, c+v)
         c = c+v
     # print('indices = ', indices)
-    batch_size = shapes.shape[0]
+    batch_size = tf.shape(shapes)[0]
     
     transform_params = tf.squeeze(transform_params)# tf.reshape(transform_params, transform_params.shape[0:2])
     # print('transform_params ', transform_params)
@@ -52,12 +52,13 @@ def transform_layer(shapes, transform_params):
     fst_row = tf.concat([scale_x_cos, scale_x_sin], axis=-1)
     snd_row = tf.concat([neg_scale_x_sin, scale_x_cos], axis=-1)
     scale_rotate = tf.stack([fst_row, snd_row], axis=-1)
-    trafo_matrix = tf.concat([scale_rotate, tf.reshape(translate_params, [*translate_params.shape, 1])], axis=-1)
-
+    temp = tf.concat([tf.shape(translate_params), [1]], 0)
+    trafo_matrix = tf.concat([scale_rotate, tf.reshape(translate_params, temp)], axis=-1)
     trafo_matrix = tf.concat([trafo_matrix, tf.broadcast_to(tf.constant([0, 0, 1], dtype=tf.float32), [batch_size, 1, 3])], axis=1)
     # print('trafo_matrix', trafo_matrix)
     # concat 1 more dimen to shape
-    shapes = tf.concat([shapes, tf.ones([*shapes.shape[:-1], 1])], -1)
+    temp = tf.concat([tf.shape(shapes)[:-1], [1]], 0)
+    shapes = tf.concat([shapes, tf.ones(temp)], -1)
     # print('shapes = ', shapes)
     transformed_shapes = tf.matmul(shapes, tf.transpose(trafo_matrix, perm=[0, 2, 1]), name='transfo_matmul')
     # print('transformed_shapes', transformed_shapes)
@@ -128,7 +129,7 @@ def predict_landmarks(inputs, pca_components):
         inputs = tf.expand_dims(inputs, -1)
 
     features = feature_extractor(inputs, num_out_params)
-    features = tf.reshape(features, [inputs.shape[0], num_out_params, 1, 1])
+    features = tf.reshape(features, [-1, num_out_params, 1, 1])
     # print('features shape ', features.shape, features[:, 0:n_components])
     shapes = shape_layer(shape_mean, components, features[:, 0:n_components])
 
