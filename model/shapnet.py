@@ -5,18 +5,44 @@ from tensorflow.contrib import slim
 # N_COMPONENTS = 12
 TRANSFORMS_OPS = dict(scale=1, rotation=1, translation=2)
 N_DIMENS = 2
+FOR_TFLITE = True
+
+def broadcast_to_batch(tensor, batch_size, name=None):
+    if FOR_TFLITE:
+        # print('tensor', tensor)
+        multiples = tf.concat([[batch_size], tf.ones(tf.size(tf.shape(tensor)), dtype=tf.int32)], 0)
+        # print('multiples = ', multiples)
+        return tf.tile(tf.expand_dims(tensor, 0), multiples, name=name)
+    else:
+        return tf.broadcast_to(tensor, [batch_size, *tensor.shape], name=name)
+
+def do_shape_transform(shapes, trafo_matrix, name=None):
+    if FOR_TFLITE:
+        # by right, we should do transpose here
+        # but this cancel out the transpose needed
+        no_lmks = tf.shape(shapes)[1]
+        rows = []
+        for r in range(0, 3): # this only works for tensor2 of shape (?, 3, 3)
+            trafo = tf.tile(tf.expand_dims(trafo_matrix[:, r, :], 1), [1, no_lmks, 1])
+            row = tf.reduce_sum(tf.multiply(shapes, trafo), -1, keepdims=True)
+            rows.append(row)
+        return tf.concat(rows, -1)            
+    else:
+        trafo_matrix = tf.transpose(trafo_matrix, perm=[0, 2, 1])
+        return tf.matmul(shapes, trafo_matrix, name=name)
 
 def shape_layer(shape_mean, components, features):
     """ shapes: eigen shape obtained by PCA
         features: features extracted from image """    
     batch_size = tf.shape(features)[0]
-    expanded_components = tf.broadcast_to(components, [batch_size, *components.shape], name='expanded_components')
+    expanded_components = broadcast_to_batch(components, batch_size, name='expanded_components')
     # print('components tensor ', expanded_components)
-    features = tf.broadcast_to(features, tf.shape(expanded_components))
+    ec_shape = tf.shape(expanded_components)
+    features =  tf.tile(features, [1, 1, ec_shape[2], ec_shape[3]])# tf.broadcast_to(features, tf.shape(expanded_components))
     # print('feature tensor ', features)
     weighted_components = tf.multiply(expanded_components, features, name="weighted_components")
 
-    expanded_means = tf.broadcast_to(shape_mean, [batch_size, *shape_mean.shape])
+    expanded_means = broadcast_to_batch(shape_mean, batch_size)# tf.broadcast_to(shape_mean, [batch_size, *shape_mean.shape])
     shapes = tf.add(expanded_means, tf.reduce_sum(weighted_components, axis=1))
     return shapes
 
@@ -54,13 +80,15 @@ def transform_layer(shapes, transform_params):
     scale_rotate = tf.stack([fst_row, snd_row], axis=-1)
     temp = tf.concat([tf.shape(translate_params), [1]], 0)
     trafo_matrix = tf.concat([scale_rotate, tf.reshape(translate_params, temp)], axis=-1)
-    trafo_matrix = tf.concat([trafo_matrix, tf.broadcast_to(tf.constant([0, 0, 1], dtype=tf.float32), [batch_size, 1, 3])], axis=1)
+    last_row = broadcast_to_batch(tf.constant([[0, 0, 1]], dtype=tf.float32), batch_size)
+    # print('last_row = ', last_row)
+    trafo_matrix = tf.concat([trafo_matrix, last_row], axis=1)
     # print('trafo_matrix', trafo_matrix)
     # concat 1 more dimen to shape
     temp = tf.concat([tf.shape(shapes)[:-1], [1]], 0)
     shapes = tf.concat([shapes, tf.ones(temp)], -1)
     # print('shapes = ', shapes)
-    transformed_shapes = tf.matmul(shapes, tf.transpose(trafo_matrix, perm=[0, 2, 1]), name='transfo_matmul')
+    transformed_shapes = do_shape_transform(shapes, trafo_matrix, name='transfo_matmul')
     # print('transformed_shapes', transformed_shapes)
     return transformed_shapes[:, :, :-1]
 
@@ -117,7 +145,7 @@ def predict_landmarks(inputs, pca_components):
 
     in_channels = 1
     n_components = components.shape[0]
-
+    # print('shape ==== ', pca_components[1:].shape)
     n_transforms = 0
     for k, v in TRANSFORMS_OPS.items():
         n_transforms += v    

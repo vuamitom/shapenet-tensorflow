@@ -4,6 +4,7 @@ from prepare_data import IMAGE_SIZE
 from shapnet import predict_landmarks
 from train import get_pcomps
 import tensorflow as tf
+import os
 
 def export(output_dir, pca_path, model_path):
     components = get_pcomps(pca_path)
@@ -14,7 +15,7 @@ def export(output_dir, pca_path, model_path):
     preds = predict_landmarks(inputs, components)
     inputs = [inputs]
     outputs = [preds]
-    
+
     with tf.Session() as sess:            
         if quantize_aware_training:
             g = tf.get_default_graph()
@@ -34,7 +35,7 @@ def export(output_dir, pca_path, model_path):
         converter.post_training_quantize = True
 
         tflite_model = converter.convert()
-        op = os.path.join(output_dir, output_name + '.tflite')
+        op = os.path.join(output_dir,  'shapenet.tflite')
         with open(op, 'wb') as f:
             f.write(tflite_model)
 
