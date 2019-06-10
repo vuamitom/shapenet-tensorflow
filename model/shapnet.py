@@ -29,7 +29,7 @@ def transform_layer(shapes, transform_params):
     # print('indices = ', indices)
     batch_size = tf.shape(shapes)[0]
     
-    transform_params = tf.squeeze(transform_params)# tf.reshape(transform_params, transform_params.shape[0:2])
+    transform_params = tf.squeeze(transform_params, [2,3])# tf.reshape(transform_params, transform_params.shape[0:2])
     # print('transform_params ', transform_params)
     scale_params = transform_params[:, indices['scale'][0]: indices['scale'][1]]
     rotate_params = transform_params[:, indices['rotation'][0]: indices['rotation'][1]]

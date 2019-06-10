@@ -7,21 +7,22 @@ N_COMPONENTS = 12
 
 class DataSet:
     def __init__(self, path, batch_size):
-        ds = np.load(path)
-        self.data = ds['data']
-        # normalize image data - first verify the value range
-        # self.data = (self.data - 127.5) / 128.0
-        # print(self.data[0])
-        # print(self.data[100])
-        # print(self.data[200])
-        self.labels = ds['labels']
+        with np.load(path) as ds:
+            # ds = np.load(path)
+            self.data = ds['data']
+            # normalize image data - first verify the value range
+            # self.data = (self.data - 127.5) / 128.0
+            # print(self.data[0])
+            # print(self.data[100])
+            # print(self.data[200])
+            self.labels = ds['labels']
         self.idx = 0
         self.batch_size = batch_size
 
     def reset_and_shuffle(self):
-        permutation = np.random.permutation(self.labels.shape[0])
-        self.data = self.data[permutation,:,:]
-        self.labels = self.labels[permutation]
+        # permutation = np.random.permutation(self.labels.shape[0])
+        # self.data = self.data[permutation,:,:]
+        # self.labels = self.labels[permutation]
         self.idx = 0    
 
     def no_batches(self):
@@ -54,44 +55,58 @@ def train(data_path, pca_path, save_path, checkpoint=None, lr=0.001):
     inputs = tf.placeholder(tf.float32, shape=[None, image_size, image_size], name='input_images')
     labels = tf.placeholder(tf.float32, shape=[None, 68, 2], name='landmarks')
 
-    dataset = tf.data.Dataset.from_tensor_slices((inputs, labels))
-    dataset = dataset.shuffle(buffer_size=10000)
-    dataset = dataset.batch(batch_size)
-    dataset = dataset.repeat(no_epoch)
+    # dataset = tf.data.Dataset.from_tensor_slices((inputs, labels))    
+    # dataset = dataset.batch(batch_size)
+    # dataset = dataset.shuffle(buffer_size=10000)
+    # iterator = dataset.make_initializable_iterator()
+    # next_batch, next_label = iterator.get_next()
+    # print('next batch ', next_batch)
+    # print('next label ', next_label)
 
-    iterator = dataset.make_initializable_iterator()
-    next_batch, next_label = iterator.get_next()
-    print('next batch ', next_batch)
-    print('next label ', next_label)
-    preds = predict_landmarks(next_batch, components)
+    preds = predict_landmarks(inputs, components)
     # define loss function
-    l1_loss = tf.losses.absolute_difference(next_label, preds)
-    mse_loss = tf.losses.mean_squared_error(next_label, preds)
+    l1_loss = tf.losses.absolute_difference(labels, preds)
+    mse_loss = tf.losses.mean_squared_error(labels, preds)
 
-    tf.summary.scalar('losses/l1_loss', l1_loss)
-    tf.summary.scalar('losses/mse_loss', mse_loss)
-    summary_op = tf.summary.merge_all()
+    # tf.summary.scalar('losses/l1_loss', l1_loss)
+    # tf.summary.scalar('losses/mse_loss', mse_loss)
+    # summary_op = tf.summary.merge_all()
     # define optimizer
     global_step = tf.train.get_or_create_global_step()
     optimizer = tf.train.AdamOptimizer(lr, 0.9, 0.999)
     train_op = optimizer.minimize(l1_loss, global_step)
 
 
-    train_data, train_labels = None, None
-    with np.load(data_path) as np_data:
-        train_data = np_data['data']
-        train_labels = np_data['labels']
+    # train_data, train_labels = None, None
+    # with np.load(data_path) as np_data:
+    #     train_data = np_data['data']
+    #     train_labels = np_data['labels']
+    ds = DataSet(data_path, batch_size)
+    print('Done load data')
 
-    step = 0
-    with tf.train.MonitoredTrainingSession(checkpoint_dir=save_path) as sess: 
-        sess.run(iterator.initializer, feed_dict={
-            inputs: train_data, labels: train_labels
-        })
-        while not sess.should_stop():
-             _, summary, l1_loss_val, mse_loss_val = sess.run([train_op, summary_op, l1_loss, mse_loss])
-             step += 1
-             if step % 100 == 0:
-                print('step ', step, 'l1 loss = ', l1_loss_val, 'mse_loss = ', mse_loss_val)
+    saver = tf.train.Saver()
+    with tf.Session() as sess: 
+        if checkpoint:
+            saver.restore(sess, checkpoint)
+        else:
+            sess.run(tf.global_variables_initializer())
+
+        for epoch in range(0, no_epoch):
+            # sess.run(iterator.initializer, )
+            ds.reset_and_shuffle()
+            for batch_no in range(0, ds.no_batches()):
+                train_data, train_labels = ds.next_batch()         
+                _, l1_loss_val, mse_loss_val, step = sess.run([train_op, l1_loss, mse_loss, global_step], feed_dict={
+                    inputs: train_data, labels: train_labels
+                })
+            
+                if step > 0 and step % 100 == 0:
+                    print('step ', step, 'l1 loss = ', l1_loss_val, 'mse_loss = ', mse_loss_val)
+                    if step % 200 == 0:
+                        # save
+                        result_path = saver.save(sess, save_path, global_step=step)
+                        print ('saved to ', result_path)
+            print ('end of epoch')
 
 
     # with tf.Session() as sess:        
@@ -139,4 +154,4 @@ def train(data_path, pca_path, save_path, checkpoint=None, lr=0.001):
 if __name__ == '__main__':
     train('../data/labels_ibug_300W_train.npz', 
         '../data/unrot_train_pca.npz',
-        '../data/shapenet')
+        '../data/checkpoints/shapenet')
