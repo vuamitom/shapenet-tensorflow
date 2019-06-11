@@ -2,8 +2,12 @@ from shapnet import predict_landmarks
 import numpy as np
 import tensorflow as tf
 import math
+import sys
 
 N_COMPONENTS = 12
+BATCH_SIZE = 32
+NO_EPOCH = 1000
+IMAGE_SIZE = 224
 
 class DataSet:
     def __init__(self, path, batch_size):
@@ -44,11 +48,14 @@ class DataSet:
 def get_pcomps(pca_path):
     return np.load(pca_path)['shapes'][:(N_COMPONENTS + 1)] 
 
-def train(data_path, pca_path, save_path, checkpoint=None, lr=0.001):
+def train(data_path, pca_path, save_path, 
+                            image_size=IMAGE_SIZE,
+                            batch_size=BATCH_SIZE,
+                            no_epoch=NO_EPOCH,
+                            checkpoint=None, 
+                            quantize=True,
+                            lr=0.001):
     
-    no_epoch = 1000
-    batch_size = 32
-    image_size = 224    
     components = get_pcomps(pca_path)
 
     # define input_variables
@@ -75,8 +82,9 @@ def train(data_path, pca_path, save_path, checkpoint=None, lr=0.001):
     global_step = tf.train.get_or_create_global_step()
     optimizer = tf.train.AdamOptimizer(lr, 0.9, 0.999)
     train_op = optimizer.minimize(l1_loss, global_step)
-
-
+    if quantize:
+        print('add custom op for quantize aware training')
+        tf.contrib.quantize.create_training_graph(input_graph=tf.get_default_graph(), quant_delay=50000)
     # train_data, train_labels = None, None
     # with np.load(data_path) as np_data:
     #     train_data = np_data['data']

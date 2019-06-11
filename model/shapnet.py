@@ -1,11 +1,15 @@
 #coding:utf-8
 import tensorflow as tf
 from tensorflow.contrib import slim
+import sys
+sys.path.append('/home/tamvm/Projects/tensorflow-models/research/slim')
+import nets.mobilenet.mobilenet_v2 as mobilenet_v2
 
 # N_COMPONENTS = 12
 TRANSFORMS_OPS = dict(scale=1, rotation=1, translation=2)
 N_DIMENS = 2
 FOR_TFLITE = True
+FEATURE_EXTRACTOR = 'mobilenetv2'
 
 def broadcast_to_batch(tensor, batch_size, name=None):
     if FOR_TFLITE:
@@ -150,6 +154,7 @@ def feature_extractor(inputs, num_out_params):
 
 
 def predict_landmarks(inputs, pca_components):
+    print('using feature extractor ', FEATURE_EXTRACTOR)
     # shape means are stored at index 0
     shape_mean = tf.constant(pca_components[0], name='shape_means', dtype=tf.float32)
     components = tf.constant(pca_components[1:], name='components', dtype=tf.float32)
@@ -167,7 +172,11 @@ def predict_landmarks(inputs, pca_components):
     if in_channels == 1:
         inputs = tf.expand_dims(inputs, -1)
 
-    features = feature_extractor(inputs, num_out_params)
+    if FEATURE_EXTRACTOR == 'mobilenetv2':
+        features, _ = mobilenet_v2.mobilenet(inputs, num_classes=num_out_params)
+    else:
+        features = feature_extractor(inputs, num_out_params)
+    print('feature after mobilenetv2 ', features)
     features = tf.reshape(features, [-1, num_out_params, 1, 1])
     # print('features shape ', features.shape, features[:, 0:n_components])
     shapes = shape_layer(shape_mean, components, features[:, 0:n_components])

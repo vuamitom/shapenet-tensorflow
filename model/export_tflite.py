@@ -20,7 +20,7 @@ def export(output_dir, pca_path, model_path):
         if quantize_aware_training:
             g = tf.get_default_graph()
             tf.contrib.quantize.create_eval_graph(input_graph=g)
-
+        # sess.run(tf.global_variables_initializer())
         saver = tf.train.Saver()
         saver.restore(sess, model_path)
         converter = tf.lite.TFLiteConverter.from_session(sess, inputs, outputs)
