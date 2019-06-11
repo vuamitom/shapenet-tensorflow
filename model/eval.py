@@ -42,7 +42,7 @@ def predict_single(img_path, model_path, pca_path):
 
 if __name__ == '__main__':
     predict_single('/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/testset/30427236_1.jpg', 
-        '../data/checkpoints/shapenet-64200', 
+        '../data/checkpoints/shapenet-89000', 
         '../data/unrot_train_pca.npz')
 
 

@@ -41,7 +41,7 @@ def export(output_dir, pca_path, model_path):
 
 if __name__ == '__main__':
     output_dir = '../data/'
-    model_path = '../data/checkpoints/shapenet-64200'
+    model_path = '../data/checkpoints/shapenet-89000'
     pca_path = '../data/unrot_train_pca.npz'
     export(output_dir, pca_path, model_path)
 

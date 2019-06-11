@@ -31,6 +31,16 @@ def do_shape_transform(shapes, trafo_matrix, name=None):
         trafo_matrix = tf.transpose(trafo_matrix, perm=[0, 2, 1])
         return tf.matmul(shapes, trafo_matrix, name=name)
 
+def do_cos(tensor, sin_tensor):
+    if FOR_TFLITE:
+        # calculate cos from sin 
+        # since cos is not supported as of 1.13.1
+        # cos = (1 - sin**2)** 0.5
+        return tf.pow(1 - tf.pow(sin_tensor, 2), 0.5)
+    else:
+        return tf.cos(tensor)
+
+
 def shape_layer(shape_mean, components, features):
     """ shapes: eigen shape obtained by PCA
         features: features extracted from image """    
@@ -70,9 +80,10 @@ def transform_layer(shapes, transform_params):
     # trafo_matrix[:, 1, 0] = tf.multiply(-scale_params, tf.sin(rotate_params))[:, 0]
     # trafo_matrix[:, 1, 1] = tf.multiply(scale_params, tf.cos(rotate_params))[:, 0]
     # trafo_matrix[:, :-1, -1] = transform_params
-
-    scale_x_cos = tf.multiply(scale_params, tf.cos(rotate_params))
-    scale_x_sin = tf.multiply(scale_params, tf.sin(rotate_params))
+    sin_rotate = tf.sin(rotate_params)
+    cos_rotate = do_cos(rotate_params, sin_rotate)
+    scale_x_cos = tf.multiply(scale_params, cos_rotate)
+    scale_x_sin = tf.multiply(scale_params, sin_rotate)
     neg_scale_x_sin = tf.multiply(-scale_params, tf.sin(rotate_params))
     # print('scale_x_cos', scale_x_cos)
     fst_row = tf.concat([scale_x_cos, scale_x_sin], axis=-1)
