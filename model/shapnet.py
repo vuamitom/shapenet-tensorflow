@@ -153,13 +153,13 @@ def feature_extractor(inputs, num_out_params):
         return net
 
 
-def predict_landmarks(inputs, pca_components):
+def predict_landmarks(inputs, pca_components, is_training=True):
     print('using feature extractor ', FEATURE_EXTRACTOR)
     # shape means are stored at index 0
     shape_mean = tf.constant(pca_components[0], name='shape_means', dtype=tf.float32)
     components = tf.constant(pca_components[1:], name='components', dtype=tf.float32)
 
-    in_channels = 1
+    in_channels = 1 if len(inputs.shape) == 3 else 3 
     n_components = components.shape[0]
     # print('shape ==== ', pca_components[1:].shape)
     n_transforms = 0
@@ -169,11 +169,16 @@ def predict_landmarks(inputs, pca_components):
     num_out_params = n_components + n_transforms  
     # print('num_out_params = ', n_components, n_transforms)
 
+    print('input channels ', in_channels)
     if in_channels == 1:
         inputs = tf.expand_dims(inputs, -1)
 
     if FEATURE_EXTRACTOR == 'mobilenetv2':
-        features, _ = mobilenet_v2.mobilenet(inputs, num_classes=num_out_params)
+        if is_training:
+            with slim.arg_scope(mobilenet_v2.training_scope(is_training=True)):
+                features, _ = mobilenet_v2.mobilenet(inputs, num_classes=num_out_params)
+        else:
+            features, _ = mobilenet_v2.mobilenet(inputs, num_classes=num_out_params)
     else:
         features = feature_extractor(inputs, num_out_params)
     print('feature after mobilenetv2 ', features)

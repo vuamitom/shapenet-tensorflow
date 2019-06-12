@@ -6,9 +6,9 @@ from train import get_pcomps
 import tensorflow as tf
 import os
 
-def export(output_dir, pca_path, model_path):
+def export(output_dir, pca_path, model_path,
+            quantize=True):
     components = get_pcomps(pca_path)
-    quantize_aware_training = False
 
 
     inputs = tf.placeholder(tf.float32, shape=[1, IMAGE_SIZE, IMAGE_SIZE], name='input_images')
@@ -17,7 +17,7 @@ def export(output_dir, pca_path, model_path):
     outputs = [preds]
 
     with tf.Session() as sess:            
-        if quantize_aware_training:
+        if quantize:
             g = tf.get_default_graph()
             tf.contrib.quantize.create_eval_graph(input_graph=g)
         # sess.run(tf.global_variables_initializer())
@@ -25,8 +25,8 @@ def export(output_dir, pca_path, model_path):
         saver.restore(sess, model_path)
         converter = tf.lite.TFLiteConverter.from_session(sess, inputs, outputs)
         # converter.optimizations = [tf.lite.Optimize.OPTIMIZE_FOR_LATENCY]
-        # if quantize_aware_training:
-        # converter.inference_type = tf.uint8
+        if quantize:
+            converter.inference_type = tf.uint8
         converter.allow_custom_ops = False
         # converter.quantized_input_stats = {}
         # converter.quantized_input_stats['input_images'] = (127.5, 128) # (mean, std)

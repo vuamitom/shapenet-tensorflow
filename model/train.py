@@ -24,9 +24,9 @@ class DataSet:
         self.batch_size = batch_size
 
     def reset_and_shuffle(self):
-        # permutation = np.random.permutation(self.labels.shape[0])
-        # self.data = self.data[permutation,:,:]
-        # self.labels = self.labels[permutation]
+        permutation = np.random.permutation(self.labels.shape[0])
+        self.data = self.data[permutation,:,:]
+        self.labels = self.labels[permutation]
         self.idx = 0    
 
     def no_batches(self):
@@ -54,12 +54,14 @@ def train(data_path, pca_path, save_path,
                             no_epoch=NO_EPOCH,
                             checkpoint=None, 
                             quantize=True,
+                            in_channels=1,
                             lr=0.001):
     
     components = get_pcomps(pca_path)
 
     # define input_variables
-    inputs = tf.placeholder(tf.float32, shape=[None, image_size, image_size], name='input_images')
+    input_shape = [None, image_size, image_size] if in_channels == 1 else [None, image_size, image_size, 3]
+    inputs = tf.placeholder(tf.float32, shape=input_shape, name='input_images')
     labels = tf.placeholder(tf.float32, shape=[None, 68, 2], name='landmarks')
 
     # dataset = tf.data.Dataset.from_tensor_slices((inputs, labels))    
@@ -71,20 +73,22 @@ def train(data_path, pca_path, save_path,
     # print('next label ', next_label)
 
     preds = predict_landmarks(inputs, components)
+    
     # define loss function
+    
     l1_loss = tf.losses.absolute_difference(labels, preds)
     mse_loss = tf.losses.mean_squared_error(labels, preds)
 
-    # tf.summary.scalar('losses/l1_loss', l1_loss)
-    # tf.summary.scalar('losses/mse_loss', mse_loss)
-    # summary_op = tf.summary.merge_all()
-    # define optimizer
-    global_step = tf.train.get_or_create_global_step()
-    optimizer = tf.train.AdamOptimizer(lr, 0.9, 0.999)
-    train_op = optimizer.minimize(l1_loss, global_step)
     if quantize:
         print('add custom op for quantize aware training')
         tf.contrib.quantize.create_training_graph(input_graph=tf.get_default_graph(), quant_delay=50000)
+    global_step = tf.train.get_or_create_global_step()
+    # tf.summary.scalar('losses/l1_loss', l1_loss)
+    # tf.summary.scalar('losses/mse_loss', mse_loss)
+    # summary_op = tf.summary.merge_all()
+    # define optimizer    
+    optimizer = tf.train.AdamOptimizer(lr, 0.9, 0.999)
+    train_op = optimizer.minimize(l1_loss, global_step) 
     # train_data, train_labels = None, None
     # with np.load(data_path) as np_data:
     #     train_data = np_data['data']
@@ -103,7 +107,8 @@ def train(data_path, pca_path, save_path,
             # sess.run(iterator.initializer, )
             ds.reset_and_shuffle()
             for batch_no in range(0, ds.no_batches()):
-                train_data, train_labels = ds.next_batch()         
+                train_data, train_labels = ds.next_batch()        
+                train_data = (train_data - 0.5) * 2 
                 _, l1_loss_val, mse_loss_val, step = sess.run([train_op, l1_loss, mse_loss, global_step], feed_dict={
                     inputs: train_data, labels: train_labels
                 })
@@ -160,6 +165,9 @@ def train(data_path, pca_path, save_path,
             # coord.join(threads)
 
 if __name__ == '__main__':
-    train('../data/labels_ibug_300W_train.npz', 
+    train('../data/labels_ibug_300W_train_64.npz', 
         '../data/unrot_train_pca.npz',
-        '../data/checkpoints/shapenet')
+        '../data/checkpoints/shapenet',
+        image_size=64,
+        in_channels=3,
+        quantize=False)
