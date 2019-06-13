@@ -55,6 +55,7 @@ def train(data_path, pca_path, save_path,
                             checkpoint=None, 
                             quantize=True,
                             in_channels=1,
+                            extractor='custom',
                             lr=0.001):
     
     components = get_pcomps(pca_path)
@@ -72,7 +73,9 @@ def train(data_path, pca_path, save_path,
     # print('next batch ', next_batch)
     # print('next label ', next_label)
 
-    preds = predict_landmarks(inputs, components)
+    preds = predict_landmarks(inputs, components, 
+                                is_training=True, 
+                                extractor=extractor)
     
     # define loss function
     
@@ -165,9 +168,18 @@ def train(data_path, pca_path, save_path,
             # coord.join(threads)
 
 if __name__ == '__main__':
-    train('../data/labels_ibug_300W_train_64.npz', 
-        '../data/unrot_train_pca.npz',
-        '../data/checkpoints/shapenet',
-        image_size=64,
-        in_channels=3,
-        quantize=False)
+    if True:
+        train('../data/labels_ibug_300W_train_64.npz', 
+            '../data/unrot_train_pca.npz',
+            '../data/checkpoints/shapenet',
+            image_size=64,
+            in_channels=3,
+            extractor='mobilenetv2',
+            quantize=False, lr=0.0005)
+    else:
+        train('../data/labels_ibug_300W_train_112_grey.npz', 
+            '../data/unrot_train_pca.npz',
+            '../data/checkpoints-custom/shapenet',
+            image_size=112,
+            in_channels=1,
+            quantize=False, lr=0.001)

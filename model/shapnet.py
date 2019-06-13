@@ -1,9 +1,7 @@
 #coding:utf-8
 import tensorflow as tf
 from tensorflow.contrib import slim
-import sys
-sys.path.append('/home/tamvm/Projects/tensorflow-models/research/slim')
-import nets.mobilenet.mobilenet_v2 as mobilenet_v2
+import extractors
 
 # N_COMPONENTS = 12
 TRANSFORMS_OPS = dict(scale=1, rotation=1, translation=2)
@@ -107,60 +105,16 @@ def transform_layer(shapes, transform_params):
     # print('transformed_shapes', transformed_shapes)
     return transformed_shapes[:, :, :-1]
 
-def feature_extractor(inputs, num_out_params):
-    """ create feature extractor
-    TODO: experiment with mobile net
-    """
-    norm_class = tf.contrib.layers.instance_norm
-    p_dropout = False
-    # print(' inputs shape = ', inputs.shape)    
-    with slim.arg_scope([slim.conv2d],
-                        activation_fn=tf.nn.relu,
-                        weights_initializer=slim.xavier_initializer(),
-                        biases_initializer=tf.zeros_initializer(),
-                        padding='VALID'):
-        net = slim.stack(inputs, slim.conv2d, [(64, [7, 1]), (64, [1, 7])], scope='conv_1')
-        net = slim.conv2d(net, 128, [7, 7], stride=2, scope='down_conv_1')
-        if norm_class:
-            net = norm_class(net, scope='norm_1')
-        if p_dropout:
-            net = slim.dropout(net, p_dropout, scope='dropout_1')
-
-        net = slim.stack(net, slim.conv2d, [(128, [7, 1]), (128, [1, 7])], scope='conv_2')
-        net = slim.conv2d(net, 256, [7, 7], stride=2, scope='down_conv_2')
-        if norm_class:
-            net = norm_class(net, scope='norm_2')
-        if p_dropout:
-            net = slim.dropout(net, p_dropout, scope='dropout_2')
-
-        net = slim.stack(net, slim.conv2d, [(256, [5, 1]), (256, [1, 5])], scope='conv_3')
-        net = slim.conv2d(net, 256, [5, 5], stride=2, scope='down_conv_3')
-        if norm_class:
-            net = norm_class(net, scope='norm_3')
-        if p_dropout:
-            net = slim.dropout(net, p_dropout, scope='dropout_3')
-
-        net = slim.stack(net, slim.conv2d, [(256, [5, 1]), (256, [1, 5])], scope='conv_4')
-        net = slim.conv2d(net, 128, [5, 5], stride=2, scope='down_conv_4')
-        if norm_class:
-            net = norm_class(net, scope='norm_4')
-        if p_dropout:
-            net = slim.dropout(net, p_dropout, scope='dropout_4')
-
-        net = slim.stack(net, slim.conv2d, [(128, [3, 1]), (128, [1, 3]), (128, [3, 1]), (128, [1, 3])], scope='conv_5')
-        net = slim.conv2d(net, num_out_params, [2, 2], scope='final_conv', activation_fn=None)
-
-        return net
 
 
-def predict_landmarks(inputs, pca_components, is_training=True):
-    print('using feature extractor ', FEATURE_EXTRACTOR)
+def predict_landmarks(inputs, pca_components, is_training=True, extractor=FEATURE_EXTRACTOR):
+    print('using feature extractor ', extractor)
     # shape means are stored at index 0
     shape_mean = tf.constant(pca_components[0], name='shape_means', dtype=tf.float32)
     components = tf.constant(pca_components[1:], name='components', dtype=tf.float32)
 
     in_channels = 1 if len(inputs.shape) == 3 else 3 
-    n_components = components.shape[0]
+    n_components = components.shape.as_list()[0]
     # print('shape ==== ', pca_components[1:].shape)
     n_transforms = 0
     for k, v in TRANSFORMS_OPS.items():
@@ -173,15 +127,11 @@ def predict_landmarks(inputs, pca_components, is_training=True):
     if in_channels == 1:
         inputs = tf.expand_dims(inputs, -1)
 
-    if FEATURE_EXTRACTOR == 'mobilenetv2':
-        if is_training:
-            with slim.arg_scope(mobilenet_v2.training_scope(is_training=True)):
-                features, _ = mobilenet_v2.mobilenet(inputs, num_classes=num_out_params)
-        else:
-            features, _ = mobilenet_v2.mobilenet(inputs, num_classes=num_out_params)
+    if extractor == 'mobilenetv2':
+        features = extractors.mobilenet_extract(inputs, num_out_params, is_training)
     else:
-        features = feature_extractor(inputs, num_out_params)
-    print('feature after mobilenetv2 ', features)
+        features = extractors.custom_feature_extractor(inputs, num_out_params)
+    print('feature after extractor ', features)
     features = tf.reshape(features, [-1, num_out_params, 1, 1])
     # print('features shape ', features.shape, features[:, 0:n_components])
     shapes = shape_layer(shape_mean, components, features[:, 0:n_components])

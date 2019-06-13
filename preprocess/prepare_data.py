@@ -207,7 +207,8 @@ def randomize(dataset, labels):
 
 def preprocess(lmk_xml, output_dir, image_size=IMAGE_SIZE, to_grayscale=True):
     # save
-    save_f = os.path.join(output_dir, os.path.basename(lmk_xml).replace('.xml', '_%s.npz' % (image_size,)))
+    output_fn = os.path.basename(lmk_xml).replace('.xml', '_%s%s.npz' % (image_size, '_grey' if to_grayscale else ''))
+    save_f = os.path.join(output_dir, output_fn)
     if os.path.exists(save_f):
         print ('preprocessed file exist: ', save_f)
         return
@@ -222,8 +223,8 @@ def preprocess(lmk_xml, output_dir, image_size=IMAGE_SIZE, to_grayscale=True):
 
 if __name__ == '__main__':
     # preprocess train data
-    image_size = 64
-    to_grayscale = False
+    image_size = 112
+    to_grayscale = True
     preprocess('/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/labels_ibug_300W_train.xml', 
                 '../data', 
                 image_size=image_size,
