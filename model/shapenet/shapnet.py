@@ -7,7 +7,6 @@ import extractors
 TRANSFORMS_OPS = dict(scale=1, rotation=1, translation=2)
 N_DIMENS = 2
 FOR_TFLITE = True
-FEATURE_EXTRACTOR = 'mobilenetv2'
 
 def broadcast_to_batch(tensor, batch_size, name=None):
     if FOR_TFLITE:
@@ -107,8 +106,8 @@ def transform_layer(shapes, transform_params):
 
 
 
-def predict_landmarks(inputs, pca_components, is_training=True, extractor=FEATURE_EXTRACTOR):
-    print('using feature extractor ', extractor)
+def predict_landmarks(inputs, pca_components, is_training=True, feature_extractor=extractors.original_paper_feature_extractor):
+    # print('using feature extractor ', extractor)
     # shape means are stored at index 0
     shape_mean = tf.constant(pca_components[0], name='shape_means', dtype=tf.float32)
     components = tf.constant(pca_components[1:], name='components', dtype=tf.float32)
@@ -123,18 +122,15 @@ def predict_landmarks(inputs, pca_components, is_training=True, extractor=FEATUR
     num_out_params = n_components + n_transforms  
     # print('num_out_params = ', n_components, n_transforms)
 
-    print('input channels ', in_channels)
+    print('input channels=', in_channels)
     if in_channels == 1:
         inputs = tf.expand_dims(inputs, -1)
-
-    if extractor == 'mobilenetv2':
-        features = extractors.mobilenet_extract(inputs, num_out_params, is_training)
-    else:
-        features = extractors.custom_feature_extractor(inputs, num_out_params)
+        
+    features = feature_extractor(inputs, num_out_params, is_training)
     print('feature after extractor ', features)
     features = tf.reshape(features, [-1, num_out_params, 1, 1])
     # print('features shape ', features.shape, features[:, 0:n_components])
     shapes = shape_layer(shape_mean, components, features[:, 0:n_components])
 
     transformed_shapes = transform_layer(shapes, features[:, n_components:])
-    return transformed_shapes
+    return transformed_shapes, features, shapes

@@ -109,6 +109,7 @@ def grayscale(img):
 def view_img(img, lmks, ref_lmks = None):
     is_gray = len(img.shape) == 2
     if is_gray:
+        # print('abc----------->')
         plt.imshow(img, cmap="gray")
     else:
         temp =cv2.cvtColor(img.astype('float32'), cv2.COLOR_BGR2RGB)
@@ -116,7 +117,8 @@ def view_img(img, lmks, ref_lmks = None):
         plt.imshow(temp)
     # top, left, w, h = bound
     # p = patches.Rectangle((top,left),w, h,linewidth=1,edgecolor='r',facecolor='none')
-    plt.scatter(lmks[:, 0], lmks[:, 1], c="C0", s=15)
+    if lmks is not None:
+        plt.scatter(lmks[:, 0], lmks[:, 1], c="C0", s=15)
     # plt.add_patch(p)
     if ref_lmks is not None:
         plt.scatter(ref_lmks[:, 0], ref_lmks[:, 1], c="C1", s=15)
@@ -134,11 +136,14 @@ def resize_lmks(img, lmks, img_size):
     return lmks
 
 # def ensure_lmk_in_bound(lmks, w, h):
-def read_data(lmk_xml, img_size, to_grayscale=True):    
+def read_data(lmk_xml, img_size, to_grayscale=True, rotate=False):    
     base_dir = os.path.dirname(lmk_xml)
     points, img_sizes, imgs = load_landmarks(lmk_xml)    
     # img_size = IMAGE_SIZE
-    no_augmented = 3
+    if rotate:
+        no_augmented = 3
+    else:
+        no_augmented = 2
     if to_grayscale:
         data = np.ndarray((len(imgs) * no_augmented, img_size, img_size), dtype=np.float32)
     else:
@@ -171,19 +176,18 @@ def read_data(lmk_xml, img_size, to_grayscale=True):
         # print ('im size = ', im.shape, ' original ', original_im.shape)
         # make sure that face is at the center
         # original_im, original_lmks = crop(original_im, original_lmks, 0.4)
-        rot_img, rot_lmk = safe_rotate(original_im, original_lmks, random.choice([5, 10, 15, 20, -5, -10, -15, -20]))        
-        
-        rot_img, rot_lmk = crop_and_resize(rot_img, rot_lmk, img_size)
+        gen_imgs = [(img, lmks), (fl_img, fl_lmks)]
+        if rotate:
+            rot_img, rot_lmk = safe_rotate(original_im, original_lmks, random.choice([5, 10, 15, 20, -5, -10, -15, -20]))                    
+            rot_img, rot_lmk = crop_and_resize(rot_img, rot_lmk, img_size)
+            gen_imgs.append((rot_img, rot_lmk))
         # view_img(rot_img, rot_lmk)
         # rot_img_ccw, rot_lmk_ccw = safe_rotate(original_im, original_lmks, random.choice([-5, -10, -15, -20]))        
         # view_img(rot_img, rot_lmk, is_gray=to_grayscale)
         # rot_img_ccw, rot_lmk_ccw = crop_and_resize(rot_img_ccw, rot_lmk_ccw, img_size)
-
-
         # view_img(rot_img, rot_lmk, is_gray=to_grayscale)
-        for idx, gen_img in enumerate([(img, lmks), (fl_img, fl_lmks), (rot_img, rot_lmk)]):            
+        for idx, gen_img in enumerate(gen_imgs):            
             data[i * no_augmented + idx] = gen_img[0]
-
             labels[i * no_augmented + idx] = gen_img[1]
             # w, h = gen_img[0].shape[1], gen_img[0].shape[0]
             # for lm in gen_img[1]:
@@ -223,17 +227,19 @@ def preprocess(lmk_xml, output_dir, image_size=IMAGE_SIZE, to_grayscale=True):
 
 if __name__ == '__main__':
     # preprocess train data
-    image_size = 112
+    image_size = 224
     to_grayscale = True
+    gen_val_data = False
     preprocess('/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/labels_ibug_300W_train.xml', 
                 '../data', 
                 image_size=image_size,
                 to_grayscale=to_grayscale)
     # preprocess test data,
-    preprocess('/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/labels_ibug_300W_test.xml', 
-                '../data', 
-                image_size=image_size,
-                to_grayscale=to_grayscale)
+    if gen_val_data:
+        preprocess('/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/labels_ibug_300W_test.xml', 
+                    '../data', 
+                    image_size=image_size,
+                    to_grayscale=to_grayscale)
     # t = '/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/245871800_1.jpg'
     # im = load_img(t)
     # print (im.shape)
