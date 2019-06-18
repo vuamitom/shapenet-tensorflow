@@ -21,27 +21,27 @@ def predict(data, model_path, pca_path, image_size=IMAGE_SIZE, in_channels=1, fe
     input_shape = [None, image_size, image_size] if in_channels == 1 else [None, image_size, image_size, in_channels]
     inputs = tf.placeholder(tf.float32, shape=input_shape, name='input_images')
     components = get_pcomps(pca_path)
-    preds, features, shapes = predict_landmarks(inputs, components, feature_extractor=feature_extractor)    
+    preds= predict_landmarks(inputs, components, feature_extractor=feature_extractor)    
     saver = tf.train.Saver()
     # g = tf.get_default_graph()
     # tf.contrib.quantize.create_eval_graph(input_graph=g)
     with tf.Session() as sess:         
         saver.restore(sess, model_path)
         # sess.run(tf.global_variables_initializer())
-        results, features_vals, shapes_vals = sess.run([preds, features, shapes], feed_dict={inputs: data})
-        print(results)
-        print('------------features----------------')
-        print(features_vals)
-        print('------------shapes----------------')
-        print(shapes_vals)
+        results= sess.run(preds, feed_dict={inputs: data})
+        # print(results)
+        # print('------------features----------------')
+        # print(features_vals)
+        # print('------------shapes----------------')
+        # print(shapes_vals)
         return results
 
 
 def crop(img, box):
     return img[box.top(): box.bottom(), box.left(): box.right()]
 
-def normalize(data):
-    return (data - 0.5) * 2
+# def normalize(data):
+#     return (data - 0.5) * 2
 
 def predict_single(img_path, model_path, pca_path, image_size=IMAGE_SIZE, 
                     feature_extractor=extractors.original_paper_feature_extractor,
@@ -77,7 +77,7 @@ if __name__ == '__main__':
             in_channels=1)
     elif model == 'shapenet-224-1-depthwise':
         predict_single('/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
-            '../../data/checkpoints-depthwise/shapenet-5500', 
+            '../../data/checkpoints-depthwise/shapenet-20500', 
             '../../data/unrot_train_pca.npz',
             image_size=224,
             feature_extractor=extractors.depthwise_conv_feature_extractor,

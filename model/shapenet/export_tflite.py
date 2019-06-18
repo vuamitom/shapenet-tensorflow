@@ -1,22 +1,22 @@
-import sys
-sys.path.append('../preprocess')
-from prepare_data import IMAGE_SIZE
-from shapnet import predict_landmarks as shapenet_predict_landmarks
+from shapnet import predict_landmarks
 from train import get_pcomps
 import tensorflow as tf
 import os
 import extractors
 
-def export(output_dir, pca_path, model_path,
+def export(output_path, pca_path, model_path,
             quantize=True,
-            image_size=IMAGE_SIZE,
+            image_size=224,
+            feature_extractor=extractors.original_paper_feature_extractor,
             in_channels=1):
+
     components = get_pcomps(pca_path)
-    input_shape = [1, image_size, image_size] if in_channels == 1 else [1, image_size, image_size, 3]
+    input_shape = [1, image_size, image_size]
     inputs = tf.placeholder(tf.float32, shape=input_shape, name='input_images')
     preds = predict_landmarks(inputs, components, 
         is_training=False, 
-        feature_extractor=extractors.custom_feature_extractor)
+        feature_extractor=feature_extractor)
+
     inputs = [inputs]
     outputs = [preds]
     # if quantize:
@@ -37,29 +37,24 @@ def export(output_dir, pca_path, model_path,
             # converter.default_ranges_min = 0
             # converter.default_ranges_max = 128
         converter.post_training_quantize = True
-
         tflite_model = converter.convert()
-        op = os.path.join(output_dir,  'shapenet.tflite')
-        with open(op, 'wb') as f:
+        # op = os.path.join(output_dir,  'shapenet.tflite')
+        with open(output_path, 'wb') as f:
             f.write(tflite_model)
 
-def export_shapenet(output_path, model_checkpoint, pca_path):
-    in_channels = 1
-    components = get_pcomps(pca_path)
-    input_shape = [1, image_size, image_size] if in_channels == 1 else [1, image_size, image_size, 3]
-    inputs = tf.placeholder(tf.float32, shape=input_shape, name='input_images')
-    preds = predict_landmarks(inputs, components, 
-        is_training=False, 
-        feature_extractor=extractors.custom_feature_extractor)
-    inputs = [inputs]
-    outputs = [preds]
-
-def export_pfld():
-    pass
-
 if __name__ == '__main__':
-    output_dir = '../data/'
-    model_path = '../data/checkpoints/shapenet-89000'
-    pca_path = '../data/unrot_train_pca.npz'
-    export(output_dir, pca_path, model_path, in_channels=1, image_size=224)
+    pca_path = '../../data/unrot_train_pca.npz'
+    use_depthwise = True 
+    if use_depthwise:
+        output_path = '../../data/shapenet-depthwise.tflite'
+        model_path = '../../data/checkpoints-depthwise/shapenet-20500'
+        feature_extractor = extractors.depthwise_conv_feature_extractor
+    else:
+        output_path = '../../data/shapenet.tflite'    
+        model_path = '../../data/checkpoints/shapenet-89000'
+        feature_extractor = extractors.original_paper_feature_extractor
+    
+    
+    export(output_path, pca_path, model_path, 
+        feature_extractor=feature_extractor)
 

@@ -133,4 +133,4 @@ def predict_landmarks(inputs, pca_components, is_training=True, feature_extracto
     shapes = shape_layer(shape_mean, components, features[:, 0:n_components])
 
     transformed_shapes = transform_layer(shapes, features[:, n_components:])
-    return transformed_shapes, features, shapes
+    return transformed_shapes
