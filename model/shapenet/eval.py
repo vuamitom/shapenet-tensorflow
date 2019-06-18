@@ -76,7 +76,7 @@ if __name__ == '__main__':
             image_size=224,
             in_channels=1)
     elif model == 'shapenet-224-1-depthwise':
-        predict_single('/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
+        predict_single('/home/tamvm/Downloads/tamvm_test_face_detect.jpg',#'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
             '../../data/checkpoints-depthwise/shapenet-20500', 
             '../../data/unrot_train_pca.npz',
             image_size=224,
