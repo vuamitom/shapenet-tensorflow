@@ -44,8 +44,6 @@ def predict_tflite(data, model_path):
 def crop(img, box):
     return img[box.top(): box.bottom(), box.left(): box.right()]
 
-
-
 def predict_single(img_path, model_path, image_size=IMAGE_SIZE):
     # get face bound
     img_size = image_size
@@ -66,8 +64,8 @@ def predict_single(img_path, model_path, image_size=IMAGE_SIZE):
             lmks = predict_tflite((np.reshape(data, (1, *data.shape)) * 255).astype(np.uint8), model_path)[0]
         else:
             print('float model')
-            data = normalize_data(data) * 255
-            lmks = predict_tflite(np.reshape(data, (1, *data.shape)).astype(np.float32), model_path)[0]
+            normalized_data = normalize_data(data) * 255
+            lmks = predict_tflite(np.reshape(normalized_data, (1, *normalized_data.shape)).astype(np.float32), model_path)[0]
     else:
         lmks = predict(np.reshape(data, (1, *data.shape)), model_path,                    
                         image_size=image_size)[0]
@@ -82,7 +80,7 @@ if __name__ == '__main__':
     model = 'pfld-64'
     if model == 'pfld-64':
         predict_single('/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/testset/30427236_1.jpg', #'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
-            '../../data/checkpoints-pfld-64/pfld-218400' if not use_tflite else '../../data/pfld-64-noquant.tflite',
+            '../../data/checkpoints-pfld-64/pfld-227200' if not use_tflite else '../../data/pfld-64.tflite',
             # '../../data/pfld-64.tflite',
             image_size=64)
 

@@ -80,7 +80,8 @@ def train(data_path, save_path,
 
     # refer to https://github.com/tensorflow/tensorflow/blob/master/tensorflow/contrib/layers/python/layers/layers.py#L473
     update_ops = tf.compat.v1.get_collection(tf.GraphKeys.UPDATE_OPS)
-    with tf.control_dependencies(update_ops):        
+    with tf.control_dependencies(update_ops):
+        print('add dependency on "moving avg" for batch_norm')        
         train_op = optimizer.minimize(l1_loss, global_step) 
     
     ds = DataSet(data_path, batch_size)

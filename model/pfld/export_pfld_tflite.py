@@ -58,6 +58,6 @@ def export(output_path, model_path,
 
 if __name__ == '__main__':
     output_path = '../../data/pfld-64.tflite'
-    model_path = '../../data/checkpoints-pfld-64/pfld-218400'
+    model_path = '../../data/checkpoints-pfld-64/pfld-227200'
     export(output_path, model_path, image_size=64, quantize_uint8=False)
 
