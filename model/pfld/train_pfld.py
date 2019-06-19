@@ -9,13 +9,16 @@ BATCH_SIZE = 20
 NO_EPOCH = 1000
 IMAGE_SIZE = 224
 
+def normalize_data(data):
+    return (data - 0.5) * 2
+
 class DataSet:
     def __init__(self, path, batch_size):
         with np.load(path) as ds:
             # ds = np.load(path)
             self.data = ds['data']
             # normalize data
-            self.data = (self.data - 0.5) * 2
+            self.data = normalize_data(self.data)# (self.data - 0.5) * 2
             self.labels = ds['labels']
             self.labels = self.labels.reshape((-1, 1, 136)).squeeze()
         self.idx = 0
@@ -72,17 +75,14 @@ def train(data_path, save_path,
     if quantize:
         print('add custom op for quantize aware training after delay', quant_delay)
         tf.contrib.quantize.create_training_graph(input_graph=tf.get_default_graph(), quant_delay=quant_delay)
-    global_step = tf.train.get_or_create_global_step()
-    # tf.summary.scalar('losses/l1_loss', l1_loss)
-    # tf.summary.scalar('losses/mse_loss', mse_loss)
-    # summary_op = tf.summary.merge_all()
-    # define optimizer    
+    global_step = tf.train.get_or_create_global_step()    
     optimizer = tf.train.AdamOptimizer(lr, 0.9, 0.999)
-    train_op = optimizer.minimize(l1_loss, global_step) 
-    # train_data, train_labels = None, None
-    # with np.load(data_path) as np_data:
-    #     train_data = np_data['data']
-    #     train_labels = np_data['labels']
+
+    # refer to https://github.com/tensorflow/tensorflow/blob/master/tensorflow/contrib/layers/python/layers/layers.py#L473
+    update_ops = tf.compat.v1.get_collection(tf.GraphKeys.UPDATE_OPS)
+    with tf.control_dependencies(update_ops):        
+        train_op = optimizer.minimize(l1_loss, global_step) 
+    
     ds = DataSet(data_path, batch_size)
 
     saver = tf.train.Saver()
@@ -109,14 +109,14 @@ def train(data_path, save_path,
                         # save
                         result_path = saver.save(sess, save_path, global_step=step)
                         print ('saved to ', result_path)
-            print ('end of epoch')
+            # print('end of epoch, eval model')
 
 if __name__ == '__main__':
     train('../../data/labels_ibug_300W_train_64.npz', 
-        '../../data/checkpoints-pfld/shapenet',
-        checkpoint=None,
+        '../../data/checkpoints-pfld-64/shapenet',
+        checkpoint='../../data/checkpoints-pfld-64/pfld-218400',
         image_size=64,
-        quantize=True, lr=0.001) 
+        quantize=False, lr=0.001) 
     # else:
     #     train('../data/labels_ibug_300W_train_112_grey.npz', 
     #         '../data/unrot_train_pca.npz',

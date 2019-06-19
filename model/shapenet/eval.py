@@ -17,6 +17,19 @@ import matplotlib
 matplotlib.use("TkAgg")
 # IMAGE_SIZE = 224
 
+def predict_tflite(data, model_path):
+    interpreter = tf.lite.Interpreter(model_path=model_path)
+    interpreter.allocate_tensors()
+    input_details = interpreter.get_input_details()
+    output_details = interpreter.get_output_details()
+    print('input_details ', input_details[0], ' data shape ', data.shape)
+    interpreter.set_tensor(input_details[0]['index'], data)
+    interpreter.invoke()
+    landmarks = interpreter.get_tensor(output_details[0]['index'])
+    print('output_details', output_details)
+    print('landmarks = ', landmarks)
+    return landmarks
+
 def predict(data, model_path, pca_path, image_size=IMAGE_SIZE, in_channels=1, feature_extractor=extractors.original_paper_feature_extractor):
     input_shape = [None, image_size, image_size] if in_channels == 1 else [None, image_size, image_size, in_channels]
     inputs = tf.placeholder(tf.float32, shape=input_shape, name='input_images')
@@ -29,11 +42,7 @@ def predict(data, model_path, pca_path, image_size=IMAGE_SIZE, in_channels=1, fe
         saver.restore(sess, model_path)
         # sess.run(tf.global_variables_initializer())
         results= sess.run(preds, feed_dict={inputs: data})
-        # print(results)
-        # print('------------features----------------')
-        # print(features_vals)
-        # print('------------shapes----------------')
-        # print(shapes_vals)
+        print('landmarks = ', results)
         return results
 
 
@@ -58,10 +67,14 @@ def predict_single(img_path, model_path, pca_path, image_size=IMAGE_SIZE,
     data = resize(data, (img_size, img_size), anti_aliasing=True, mode='reflect') 
     # view_img(data, None)
     # data = normalize(data)
-    lmks = predict(np.reshape(data, (1, *data.shape)), model_path, pca_path, 
-                    feature_extractor=feature_extractor,
-                    image_size=image_size, 
-                    in_channels=in_channels)[0]
+    if model_path.find('tflite') >= 0:
+        print('predict using tflite ', model_path)
+        lmks = predict_tflite(np.reshape(data, (1, *data.shape)).astype(np.float32), model_path)[0]
+    else:
+        lmks = predict(np.reshape(data, (1, *data.shape)), model_path, pca_path, 
+                        feature_extractor=feature_extractor,
+                        image_size=image_size, 
+                        in_channels=in_channels)[0]
     # print('landmark = ', lmks)
     view_img(data, lmks)
 
@@ -76,19 +89,20 @@ if __name__ == '__main__':
             image_size=224,
             in_channels=1)
     elif model == 'shapenet-224-1-depthwise':
-        predict_single('/home/tamvm/Downloads/tamvm_test_face_detect.jpg',#'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
-            '../../data/checkpoints-depthwise/shapenet-20500', 
+        use_tflite = True
+        predict_single('/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg',#'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
+            '../../data/checkpoints-depthwise/shapenet-20500' if not use_tflite else '../../data/shapenet-depthwise.tflite', 
             '../../data/unrot_train_pca.npz',
             image_size=224,
             feature_extractor=extractors.depthwise_conv_feature_extractor,
             in_channels=1)
-    else:
-        predict_single('/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
-            '../../data/checkpoints-64-v4/shapenet-94400', 
-            '../../data/unrot_train_pca.npz',
-            image_size=64,
-            feature_extractor=extractors.mobilenet_extract_v4,
-            in_channels=3)
+    # else:
+    #     predict_single('/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
+    #         '../../data/checkpoints-64-v4/shapenet-94400', 
+    #         '../../data/unrot_train_pca.npz',
+    #         image_size=64,
+    #         feature_extractor=extractors.mobilenet_extract_v4,
+    #         in_channels=3)
 
 
 

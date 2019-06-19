@@ -11,13 +11,14 @@ from skimage.transform import resize
 from prepare_data import IMAGE_SIZE, view_img
 from skimage.transform import resize
 import matplotlib
+from train_pfld import normalize_data
 matplotlib.use("TkAgg")
 # IMAGE_SIZE = 224
 
 def predict(data, model_path, image_size=IMAGE_SIZE):
     input_shape = [None, image_size, image_size, 3]
     inputs = tf.placeholder(tf.float32, shape=input_shape, name='input_images')
-    preds= predict_landmarks(inputs)    
+    preds= predict_landmarks(inputs, is_training=False)    
     saver = tf.train.Saver()
     # g = tf.get_default_graph()
     # tf.contrib.quantize.create_eval_graph(input_graph=g)
@@ -25,6 +26,7 @@ def predict(data, model_path, image_size=IMAGE_SIZE):
         saver.restore(sess, model_path)
         # sess.run(tf.global_variables_initializer())
         results= sess.run(preds, feed_dict={inputs: data})
+        print('landmarks = ', results)
         return results
 
 def predict_tflite(data, model_path):
@@ -32,17 +34,17 @@ def predict_tflite(data, model_path):
     interpreter.allocate_tensors()
     input_details = interpreter.get_input_details()
     output_details = interpreter.get_output_details()
-    print('input_details ', input_details[0])
+    print('input_details ', input_details[0], ' data shape ', data.shape)
     interpreter.set_tensor(input_details[0]['index'], data)
     interpreter.invoke()
     landmarks = interpreter.get_tensor(output_details[0]['index'])
+    print('landmarks = ', landmarks)
     return landmarks
 
 def crop(img, box):
     return img[box.top(): box.bottom(), box.left(): box.right()]
 
-def normalize(data):
-    return (data - 0.5) * 2
+
 
 def predict_single(img_path, model_path, image_size=IMAGE_SIZE):
     # get face bound
@@ -57,12 +59,15 @@ def predict_single(img_path, model_path, image_size=IMAGE_SIZE):
     # view_img(data, None)    
 
     if model_path.endswith('.tflite'):
+        print('using tflite model ', model_path)
         is_unint8 = model_path.find('uint8') >= 0 
         if is_unint8:
-            lmks = predict_tflite((np.reshape(data, (1, *data.shape)) * 255).astype(np.uint8), model_path)
+            print('int model')
+            lmks = predict_tflite((np.reshape(data, (1, *data.shape)) * 255).astype(np.uint8), model_path)[0]
         else:
-            data = normalize(data)
-            lmks = predict_tflite(np.reshape(data, (1, *data.shape)).astype(np.float32), model_path)
+            print('float model')
+            data = normalize_data(data) * 255
+            lmks = predict_tflite(np.reshape(data, (1, *data.shape)).astype(np.float32), model_path)[0]
     else:
         lmks = predict(np.reshape(data, (1, *data.shape)), model_path,                    
                         image_size=image_size)[0]
@@ -76,8 +81,8 @@ if __name__ == '__main__':
     use_tflite = True
     model = 'pfld-64'
     if model == 'pfld-64':
-        predict_single('/home/tamvm/Downloads/tamvm_test_face_detect.jpg', #'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
-            '../../data/checkpoints-pfld-64/pfld-218400' if not use_tflite else '../../data/pfld-64-uint8.tflite',
+        predict_single('/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/testset/30427236_1.jpg', #'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
+            '../../data/checkpoints-pfld-64/pfld-218400' if not use_tflite else '../../data/pfld-64-noquant.tflite',
             # '../../data/pfld-64.tflite',
             image_size=64)
 

@@ -3,6 +3,14 @@ from train import get_pcomps
 import tensorflow as tf
 import os
 import extractors
+import numpy as np
+
+def representative_dataset():
+    samples = None
+    with np.load('../../data/labels_ibug_300W_train_224_grey.npz') as ds:
+        samples = ds['data'][0:500]
+    for input_value in samples:
+        yield [input_value.reshape((1, *input_value.shape))]
 
 def export(output_path, pca_path, model_path,
             quantize_uint8=True,
@@ -29,13 +37,18 @@ def export(output_path, pca_path, model_path,
         saver.restore(sess, model_path)
         converter = tf.lite.TFLiteConverter.from_session(sess, inputs, outputs)
         # converter.optimizations = [tf.lite.Optimize.OPTIMIZE_FOR_LATENCY]
-        if quantize_uint8:
-            converter.inference_type = tf.uint8
-            converter.quantized_input_stats['input_images'] = (128.0, 128) # (mean, std)
-            converter.default_ranges_stats = (0, 1)
+        if not quantize_uint8:
+            # converter.inference_type = tf.uint8
+            # converter.quantized_input_stats['input_images'] = (128.0, 128) # (mean, std)
+            # converter.default_ranges_stats = (0, 1)
+            converter.allow_custom_ops = False    
+            converter.post_training_quantize = True
+        else:
+            converter.allow_custom_ops = False
+            converter.optimizations = [tf.lite.Optimize.DEFAULT]
+            converter.representative_dataset = representative_dataset
 
-        converter.allow_custom_ops = False    
-        converter.post_training_quantize = True
+        
         tflite_model = converter.convert()
         # op = os.path.join(output_dir,  'shapenet.tflite')
         with open(output_path, 'wb') as f:
@@ -46,7 +59,7 @@ if __name__ == '__main__':
     use_depthwise = True 
     quantize_uint8 = False
     if use_depthwise:
-        output_path = '../../data/shapenet-depthwise.tflite'
+        output_path = '../../data/shapenet-depthwise-quant.tflite'
         model_path = '../../data/checkpoints-depthwise/shapenet-20500'
         feature_extractor = extractors.depthwise_conv_feature_extractor
     else:

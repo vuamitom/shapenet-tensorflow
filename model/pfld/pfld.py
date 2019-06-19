@@ -18,8 +18,11 @@ def dummy_depth_multiplier(output_params,
                      min_depth=8,
 **unused_kwargs):
     return
-
-def backbone_net(inputs):
+def conv_hyperparams_fn(**kwargs):
+    with tf.contrib.slim.arg_scope([]) as sc:
+        return sc
+        
+def backbone_net(inputs, is_training=True):
     pad_to_multiple = 32
     use_explicit_padding = True
     depth_multiplier = 1.0
@@ -51,7 +54,7 @@ def backbone_net(inputs):
     specs.append(op(slim.conv2d, stride=2, kernel_size=[3, 3], num_outputs=32, scope='S2'))
     specs.append(op(slim.conv2d, stride=1, kernel_size=[7, 7], num_outputs=128, scope='S3'))
 
-    print('specs = ', specs, ' len = ', len(specs))
+    # print('specs = ', specs, ' len = ', len(specs))
 
     arch = dict(
         defaults={
@@ -76,7 +79,7 @@ def backbone_net(inputs):
 
     with tf.variable_scope('Backbone', reuse=reuse_weights) as scope:
         with slim.arg_scope(
-            mobilenet_v2.training_scope(is_training=None, bn_decay=0.9997)), \
+            mobilenet_v2.training_scope(is_training=is_training, bn_decay=0.9997)), \
             slim.arg_scope(
               [mobilenet.depth_multiplier], min_depth=min_depth):
             with (slim.arg_scope(conv_hyperparams_fn(is_training=is_training))
@@ -85,12 +88,13 @@ def backbone_net(inputs):
                 _, image_features = mobilenet_v2.mobilenet_base(
                   od_ops.pad_to_multiple(inputs, pad_to_multiple),                  
                   depth_multiplier=depth_multiplier,
+                  is_training=is_training,
                   use_explicit_padding=use_explicit_padding,
                   conv_defs=arch,
                   scope=scope)
                 # do a fully connected layer here
                 # TODO
-                print('image features', image_features)
+                # print('image features', image_features)
                 S1 = image_features['layer_15/output']
                 S2 = image_features['layer_16']
                 S3 = image_features['layer_17']
@@ -99,12 +103,12 @@ def backbone_net(inputs):
                 S2 = slim.flatten(S2, scope='S2flatten') # [batch_size, -1])
                 S3 = slim.flatten(S3, scope='S3flatten') # [batch_size, -1])
                 before_dense = tf.concat([S1, S2, S3], 1)
-                print('before dense = ', before_dense)
+                # print('before dense = ', before_dense)
                 # before_dense.set_shape([None, 100 ])
                 return slim.fully_connected(before_dense, 136)
 
 
-def predict_landmarks(inputs, *args, **kwargs):
-    output = backbone_net(inputs)
+def predict_landmarks(inputs, is_training=True, *args, **kwargs):
+    output = backbone_net(inputs, is_training=is_training)
     print('output = ', output)
     return output
