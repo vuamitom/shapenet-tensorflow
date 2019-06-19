@@ -77,7 +77,7 @@ if __name__ == '__main__':
     model = 'pfld-64'
     if model == 'pfld-64':
         predict_single('/home/tamvm/Downloads/tamvm_test_face_detect.jpg', #'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
-            '../../data/checkpoints-pfld-64/pfld-218400' if not use_tflite else '../../data/pfld-64.tflite',
+            '../../data/checkpoints-pfld-64/pfld-218400' if not use_tflite else '../../data/pfld-64-uint8.tflite',
             # '../../data/pfld-64.tflite',
             image_size=64)
 

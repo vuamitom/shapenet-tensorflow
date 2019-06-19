@@ -43,16 +43,6 @@ def export(output_dir, pca_path, model_path,
         with open(op, 'wb') as f:
             f.write(tflite_model)
 
-def export_shapenet(output_path, model_checkpoint, pca_path):
-    in_channels = 1
-    components = get_pcomps(pca_path)
-    input_shape = [1, image_size, image_size] if in_channels == 1 else [1, image_size, image_size, 3]
-    inputs = tf.placeholder(tf.float32, shape=input_shape, name='input_images')
-    preds = predict_landmarks(inputs, components, 
-        is_training=False, 
-        feature_extractor=extractors.custom_feature_extractor)
-    inputs = [inputs]
-    outputs = [preds]
 
 def export_pfld():
     pass

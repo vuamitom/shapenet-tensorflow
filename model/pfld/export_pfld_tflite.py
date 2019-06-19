@@ -25,13 +25,14 @@ def export(output_path, model_path,
         saver.restore(sess, model_path)
         converter = tf.lite.TFLiteConverter.from_session(sess, inputs, outputs)
         # converter.optimizations = [tf.lite.Optimize.OPTIMIZE_FOR_LATENCY]
+        converter.optimizations = [tf.lite.Optimize.OPTIMIZE_FOR_SIZE]
         # if quantize:
         if quantize_uint8:
-            converter.inference_type = tf.uint8
-            converter.allow_custom_ops = False
+            converter.inference_type = tf.uint8            
             converter.quantized_input_stats = {}
-            converter.quantized_input_stats['input_images'] = (127.0, 128) # (mean, std)
-            # converter.default_ranges_stats = (-1, 1)
+            converter.quantized_input_stats['input_images'] = (128.0, 128) # (mean, std)
+            converter.default_ranges_stats = (0, 255)
+        converter.allow_custom_ops = False
         converter.post_training_quantize = True
         tflite_model = converter.convert()
         # op = os.path.join(output_dir,  'shapenet.tflite')
@@ -39,7 +40,7 @@ def export(output_path, model_path,
             f.write(tflite_model)
 
 if __name__ == '__main__':
-    output_path = '../../data/pfld-64.tflite'
+    output_path = '../../data/pfld-64-uint8.tflite'
     model_path = '../../data/checkpoints-pfld-64/pfld-218400'
     export(output_path, model_path, image_size=64, quantize_uint8=True)
 

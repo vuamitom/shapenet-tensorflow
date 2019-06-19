@@ -5,7 +5,7 @@ import os
 import extractors
 
 def export(output_path, pca_path, model_path,
-            quantize=True,
+            quantize_uint8=True,
             image_size=224,
             feature_extractor=extractors.original_paper_feature_extractor,
             in_channels=1):
@@ -29,13 +29,12 @@ def export(output_path, pca_path, model_path,
         saver.restore(sess, model_path)
         converter = tf.lite.TFLiteConverter.from_session(sess, inputs, outputs)
         # converter.optimizations = [tf.lite.Optimize.OPTIMIZE_FOR_LATENCY]
-        # if quantize:
-        #     converter.inference_type = tf.uint8
-        converter.allow_custom_ops = False
-        # converter.quantized_input_stats = {}
-        # converter.quantized_input_stats['input_images'] = (127.5, 128) # (mean, std)
-            # converter.default_ranges_min = 0
-            # converter.default_ranges_max = 128
+        if quantize_uint8:
+            converter.inference_type = tf.uint8
+            converter.quantized_input_stats['input_images'] = (128.0, 128) # (mean, std)
+            converter.default_ranges_stats = (0, 1)
+
+        converter.allow_custom_ops = False    
         converter.post_training_quantize = True
         tflite_model = converter.convert()
         # op = os.path.join(output_dir,  'shapenet.tflite')
@@ -45,6 +44,7 @@ def export(output_path, pca_path, model_path,
 if __name__ == '__main__':
     pca_path = '../../data/unrot_train_pca.npz'
     use_depthwise = True 
+    quantize_uint8 = False
     if use_depthwise:
         output_path = '../../data/shapenet-depthwise.tflite'
         model_path = '../../data/checkpoints-depthwise/shapenet-20500'
@@ -56,5 +56,6 @@ if __name__ == '__main__':
     
     
     export(output_path, pca_path, model_path, 
-        feature_extractor=feature_extractor)
+        feature_extractor=feature_extractor,
+        quantize_uint8=quantize_uint8)
 
