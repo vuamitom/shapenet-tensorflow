@@ -13,46 +13,8 @@ from tensorflow.contrib import slim
 # from object_detection.protos import hyperparams_pb2
 # from google.protobuf import text_format
 
-# import nets.mobilenet.conv_blocks as conv_blocks
 
-# def conv_hyperparams_fn2(add_batch_norm=True, is_training=True):
-#     conv_hyperparams = hyperparams_pb2.Hyperparams()
-#     conv_hyperparams_text_proto = """
-#       activation: RELU_6
-#       regularizer {
-#         l2_regularizer {
-#             weight: 4.0e-05
-#         }
-#       }
-#       initializer {
-#         truncated_normal_initializer {
-#             mean: 0.0
-#             stddev: 0.03
-#         }
-#       }
-#     """
-#     if add_batch_norm:
-#       batch_norm_proto = """
-#         batch_norm {
-#           decay: 0.9997
-#           center: true
-#           scale: true
-#           epsilon: 0.001
-#           train: true
-#         }
-#       """
-
-#     conv_hyperparams_text_proto += batch_norm_proto
-#     text_format.Merge(conv_hyperparams_text_proto, conv_hyperparams)
-
-#     scope_fn = hyperparams_builder.build(conv_hyperparams, True)
-#     return scope_fn()
-
-# def conv_hyperparams_fn(**kwargs):
-#     with tf.contrib.slim.arg_scope([]) as sc:
-#       return sc
-
-# def _mobilenet_extractor(preprocessed_inputs, num_outputs, feature_layout, is_training=True, conv_defs=None):
+# def mobilenet_extractor(inputs, num_outputs, is_training=True):
 #     pad_to_multiple = 32
 #     use_explicit_padding = True
 #     depth_multiplier = 1.0
@@ -60,41 +22,80 @@ from tensorflow.contrib import slim
 #     override_base_feature_extractor_hyperparams = False
 #     reuse_weights = None
 #     min_depth = 16
+#     specs = [
+#             op(slim.conv2d, stride=2, num_outputs=64, kernel_size=[3, 3]),
+#             # todo: Depthwise Conv3×3
+#             op(slim.separable_conv2d, stride=1, kernel_size=[3, 3], num_outputs=None, multiplier_func=dummy_depth_multiplier),    
+#             # 562×64Bottleneck 2 64 5 2
+#             op(ops.expanded_conv, stride=2, num_outputs=64),            
+#         ]
+#     for _ in range(0, 4):
+#         specs.append(op(ops.expanded_conv, stride=1, num_outputs=64))
 
-#     if not conv_defs:
-#         conv_defs = mobilenet_v2.V2_DEF
+#     # 282×64Bottleneck212812
+#     specs.append(op(ops.expanded_conv, stride=2, num_outputs=128))
 
-#     feature_map_layout = {
-#         'use_depthwise': use_depthwise,
-#         'use_explicit_padding': use_explicit_padding,
-#     }
-#     feature_map_layout.update(feature_layout)
+#     # 142×128Bottleneck412861    
+#     for _ in range(0, 6):            
+#         specs.append(op(ops.expanded_conv, 
+#             expansion_size=expand_input(4, divisible_by=1), 
+#             num_outputs=128,
+#             stride=1))
 
-#     with tf.variable_scope('MobilenetV2', reuse=reuse_weights) as scope:
+#     specs.append(op(ops.expanded_conv, stride=1, num_outputs=16, scope='S1'))
+#     specs.append(op(slim.conv2d, stride=2, kernel_size=[3, 3], num_outputs=32, scope='S2'))
+#     specs.append(op(slim.conv2d, stride=1, kernel_size=[7, 7], num_outputs=128, scope='S3'))
+
+#     # print('specs = ', specs, ' len = ', len(specs))
+
+#     arch = dict(
+#         defaults={
+#             # Note: these parameters of batch norm affect the architecture
+#             # that's why they are here and not in training_scope.
+#             (slim.batch_norm,): {'center': True, 'scale': True},
+#             (slim.conv2d, slim.fully_connected, slim.separable_conv2d): {
+#                 'normalizer_fn': slim.batch_norm, 'activation_fn': tf.nn.relu6
+#             },
+#             (ops.expanded_conv,): {
+#                 'expansion_size': expand_input(2),
+#                 'split_expansion': 1,
+#                 'normalizer_fn': slim.batch_norm,
+#                 'residual': True
+#             },
+#             (slim.conv2d, slim.separable_conv2d): {'padding': 'SAME'}
+#         },
+
+#         spec=specs
+#     )
+
+
+#     with tf.variable_scope('Backbone', reuse=reuse_weights) as scope:
 #         with slim.arg_scope(
-#             mobilenet_v2.training_scope(is_training=None, bn_decay=0.9997)), \
+#             mobilenet_v2.training_scope(is_training=is_training, bn_decay=0.9997)), \
 #             slim.arg_scope(
 #               [mobilenet.depth_multiplier], min_depth=min_depth):
 #             with (slim.arg_scope(conv_hyperparams_fn(is_training=is_training))
 #                 if override_base_feature_extractor_hyperparams else
 #                 context_manager.IdentityContextManager()):
 #                 _, image_features = mobilenet_v2.mobilenet_base(
-#                   ops.pad_to_multiple(preprocessed_inputs, pad_to_multiple),
-#                   final_endpoint='layer_19',
+#                   od_ops.pad_to_multiple(inputs, pad_to_multiple),                  
 #                   depth_multiplier=depth_multiplier,
+#                   is_training=is_training,
 #                   use_explicit_padding=use_explicit_padding,
-#                   conv_defs=conv_defs,
+#                   conv_defs=arch,
 #                   scope=scope)
-#             with slim.arg_scope(conv_hyperparams_fn(is_training=is_training)):
-#               feature_maps = feature_map_generators.multi_resolution_feature_maps(
-#                   feature_map_layout=feature_map_layout,
-#                   depth_multiplier=depth_multiplier,
-#                   min_depth=min_depth,
-#                   insert_1x1_conv=True,
-#                   image_features=image_features)
 
-#     print ('keys = ', feature_maps.keys())
-#     return feature_maps[list(feature_maps.keys())[-1]]
+#                 S1 = image_features['layer_15']
+#                 S2 = image_features['layer_16']
+#                 S3 = image_features['layer_17']
+#                 # batch_size = tf.shape(S1)[0]
+#                 S1 = slim.flatten(S1, scope='S1flatten') # tf.reshape(S1, [batch_size, -1])
+#                 S2 = slim.flatten(S2, scope='S2flatten') # [batch_size, -1])
+#                 S3 = slim.flatten(S3, scope='S3flatten') # [batch_size, -1])
+#                 before_dense = tf.concat([S1, S2, S3], 1)
+#                 # print('before dense = ', before_dense)
+#                 # before_dense.set_shape([None, 100 ])
+#                 return image_features, slim.fully_connected(before_dense, num_outputs)
 
 # def mobilenet_extract(preprocessed_inputs, num_outputs, is_training=True):
 #     feature_map_layout = {

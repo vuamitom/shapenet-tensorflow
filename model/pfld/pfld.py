@@ -12,6 +12,9 @@ expand_input = ops.expand_input_by_factor
 op = lib.op
 # https://arxiv.org/pdf/1902.10859.pdf
 
+def loss_fn(preds, pred_pose, labels):
+    return None
+
 def dummy_depth_multiplier(output_params,
                      multiplier,
                      divisible_by=8,
@@ -21,6 +24,17 @@ def dummy_depth_multiplier(output_params,
 def conv_hyperparams_fn(**kwargs):
     with tf.contrib.slim.arg_scope([]) as sc:
         return sc
+
+def auxiliary_net(inputs):
+    with slim.arg_scope([slim.conv2d]):
+        # net = slim.stack(inputs, conv2d_class, [(64, [7, 1]), (64, [1, 7])], scope='conv_1')
+        net = slim.conv2d(inputs, 128, [3, 3], stride=2, scope='aux_conv_1')
+        net = slim.conv2d(net, 128, [3, 3], stride=1, scope='aux_conv_2')
+        net = slim.conv2d(net, 32, [3, 3], stride=2, scope='aux_conv_3')
+        net = slim.conv2d(net, 128, [7, 7], stride=1, scope='aux_conv_4')
+        net = slim.fully_connected(net, 32)
+        net = slim.fully_connected(net, 3)
+        return net        
         
 def backbone_net(inputs, is_training=True):
     pad_to_multiple = 32
@@ -94,8 +108,9 @@ def backbone_net(inputs, is_training=True):
                   scope=scope)
                 # do a fully connected layer here
                 # TODO
-                # print('image features', image_features)
-                S1 = image_features['layer_15/output']
+                print('image features', list(image_features.keys()))
+
+                S1 = image_features['layer_15']
                 S2 = image_features['layer_16']
                 S3 = image_features['layer_17']
                 # batch_size = tf.shape(S1)[0]
@@ -105,10 +120,15 @@ def backbone_net(inputs, is_training=True):
                 before_dense = tf.concat([S1, S2, S3], 1)
                 # print('before dense = ', before_dense)
                 # before_dense.set_shape([None, 100 ])
-                return slim.fully_connected(before_dense, 136)
+                return image_features, slim.fully_connected(before_dense, 136)
 
 
 def predict_landmarks(inputs, is_training=True, *args, **kwargs):
-    output = backbone_net(inputs, is_training=is_training)
-    print('output = ', output)
-    return output
+    mobilenet_output, landmarks = backbone_net(inputs, is_training=is_training)
+    # print('output = ', output)
+    # print('layer 4', mobilenet_output['layer_4'])
+    # print('layer 4/output ', mobilenet_output['layer_4/output'])
+    # print('layer 15', mobilenet_output['layer_15'])
+    # print('layer 15/output ', mobilenet_output['layer_15/output'])
+    pose = auxiliary_net(mobilenet_output['layer_4'])
+    return landmarks, pose

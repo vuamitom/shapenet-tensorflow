@@ -10,6 +10,7 @@ import random
 IMAGE_SIZE = 224
 CROP_OFFSET = 0.05
 
+
 def rotate(img, landmark, angle):
     h, w = img.shape[0], img.shape[1]
     center = (w/2, h/2)
@@ -171,7 +172,7 @@ def read_data(lmk_xml, img_size, to_grayscale=True, rotate=False):
         img, lmks = crop_and_resize(original_im, original_lmks, img_size)   
         # view_img(img, lmks)     
         fl_img, fl_lmks = flip(img, lmks)        
-        # view_img(fl_img, fl_lmks)
+        view_img(fl_img, fl_lmks)
 
         # print ('im size = ', im.shape, ' original ', original_im.shape)
         # make sure that face is at the center
@@ -198,7 +199,7 @@ def read_data(lmk_xml, img_size, to_grayscale=True, rotate=False):
             # view_img(gen_img[0], gen_img[1])
         # print('min pixel val = ', np.min(data))
         # since float is in range 0 to 1
-        # return None
+        return None
         if i % 300 == 0:
             print('processed ', (i+1), '/', len(imgs), ' images')
     return data, labels
@@ -227,13 +228,16 @@ def preprocess(lmk_xml, output_dir, image_size=IMAGE_SIZE, to_grayscale=True):
 
 if __name__ == '__main__':
     # preprocess train data
-    image_size = 224
-    to_grayscale = True
-    gen_val_data = False
-    preprocess('/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/labels_ibug_300W_train.xml', 
-                '../data', 
-                image_size=image_size,
-                to_grayscale=to_grayscale)
+    image_size = 228
+    to_grayscale = False
+    gen_val_data = True
+    gen_train_data = False
+
+    if gen_train_data:
+        preprocess('/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/labels_ibug_300W_train.xml', 
+                    '../data', 
+                    image_size=image_size,
+                    to_grayscale=to_grayscale)
     # preprocess test data,
     if gen_val_data:
         preprocess('/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/labels_ibug_300W_test.xml', 

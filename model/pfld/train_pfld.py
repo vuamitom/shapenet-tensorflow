@@ -1,5 +1,5 @@
 # from shapnet import predict_landmarks as shapenet_predict_landmarks
-from pfld import predict_landmarks as pfld_predict_landmarks
+from pfld import predict_landmarks as pfld_predict_landmarks, loss_fn
 import numpy as np
 import tensorflow as tf
 import math
@@ -9,11 +9,15 @@ BATCH_SIZE = 20
 NO_EPOCH = 1000
 IMAGE_SIZE = 224
 
+def normalize_landmarks(lmks, image_size):
+    return (lmks/image_size - 0.5) * 2
+
+
 def normalize_data(data):
     return (data - 0.5) * 2
 
 class DataSet:
-    def __init__(self, path, batch_size):
+    def __init__(self, path, batch_size, image_size, normalize_lmks=True):
         with np.load(path) as ds:
             # ds = np.load(path)
             self.data = ds['data']
@@ -21,6 +25,8 @@ class DataSet:
             self.data = normalize_data(self.data)# (self.data - 0.5) * 2
             self.labels = ds['labels']
             self.labels = self.labels.reshape((-1, 1, 136)).squeeze()
+            if normalize_lmks:
+                self.labels = normalize_landmarks(self.labels, image_size)
         self.idx = 0
         self.batch_size = batch_size
 
@@ -55,6 +61,7 @@ def train(data_path, save_path,
                             quantize=True,
                             quant_delay=50000,
                             step_per_save=300,
+                            eval_data_path=None,
                             lr=0.001):
 
     print('train with image_size ', image_size, 
@@ -65,12 +72,11 @@ def train(data_path, save_path,
     inputs = tf.placeholder(tf.float32, shape=[None, image_size, image_size, 3], name='input_images')
     labels = tf.placeholder(tf.float32, shape=[None, 136], name='landmarks')
 
-    preds = pfld_predict_landmarks(inputs,
+    preds, pose_preds = pfld_predict_landmarks(inputs,
                                 is_training=True)
     # define loss function
     
-    l1_loss = tf.losses.absolute_difference(labels, preds)
-    mse_loss = tf.losses.mean_squared_error(labels, preds)
+    loss = loss_fn(preds, pose_preds, labels)
 
     if quantize:
         print('add custom op for quantize aware training after delay', quant_delay)
@@ -82,9 +88,12 @@ def train(data_path, save_path,
     update_ops = tf.compat.v1.get_collection(tf.GraphKeys.UPDATE_OPS)
     with tf.control_dependencies(update_ops):
         print('add dependency on "moving avg" for batch_norm')        
-        train_op = optimizer.minimize(l1_loss, global_step) 
+        train_op = optimizer.minimize(loss, global_step) 
     
-    ds = DataSet(data_path, batch_size)
+    ds = DataSet(data_path, batch_size, image_size)
+    if eval_data_path is not None:
+        eval_ds = DataSet(eval_data_path, 500, image_size)
+        last_eval_res = None
 
     saver = tf.train.Saver()
     with tf.Session() as sess: 
@@ -101,22 +110,35 @@ def train(data_path, save_path,
             for batch_no in range(0, ds.no_batches()):
                 train_data, train_labels = ds.next_batch()        
                 # train_data = (train_data - 0.5) * 2 
-                _, l1_loss_val, mse_loss_val, step = sess.run([train_op, l1_loss, mse_loss, global_step], feed_dict={
+                _, loss_val, step = sess.run([train_op, loss, global_step], feed_dict={
                     inputs: train_data, labels: train_labels
                 })
                 if step > 0 and step % 100 == 0:
-                    print('step ', step, 'l1 loss = ', l1_loss_val, 'mse_loss = ', mse_loss_val)
-                    if step % step_per_save == 0:
+                    print('step ', step, ' loss value = ', loss_val)
+                    if step % step_per_save == 0 and eval_ds is None:
                         # save
                         result_path = saver.save(sess, save_path, global_step=step)
                         print ('saved to ', result_path)
-            # print('end of epoch, eval model')
+
+            if eval_ds is not None:
+                eval_ds.reset_and_shuffle()
+                eval_data, eval_labels = eval_ds.next_batch()
+                loss_val = sess.run(loss, feed_dict={inputs: eval_data, labels: eval_labels})
+                print ('eval results: loss val =', loss_val)
+                if last_eval_res is not None and loss_val < last_eval_res:
+                    result_path = saver.save(sess, save_path, global_step=step)
+                    print ('improved, saved to ', result_path)
+                    last_eval_res = loss_val
+                elif last_eval_res is None:
+                    last_eval_res = loss_val
+
 
 if __name__ == '__main__':
     train('../../data/labels_ibug_300W_train_64.npz', 
         '../../data/checkpoints-pfld-64/shapenet',
         checkpoint='../../data/checkpoints-pfld-64/pfld-218400',
         image_size=64,
+        eval_data_path='../../data/labels_ibug_300W_test_64.npz',
         quantize=False, lr=0.001) 
     # else:
     #     train('../data/labels_ibug_300W_train_112_grey.npz', 

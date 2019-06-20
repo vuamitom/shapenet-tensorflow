@@ -90,7 +90,7 @@ if __name__ == '__main__':
             in_channels=1)
     elif model == 'shapenet-224-1-depthwise':
         use_tflite = True
-        predict_single('/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg',#'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
+        predict_single('/home/tamvm/Downloads/test_face_tamvm_1.jpg',#'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
             '../../data/checkpoints-depthwise/shapenet-20500' if not use_tflite else '../../data/shapenet-depthwise.tflite', 
             '../../data/unrot_train_pca.npz',
             image_size=224,

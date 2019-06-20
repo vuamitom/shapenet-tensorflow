@@ -10,14 +10,22 @@ BATCH_SIZE = 20
 NO_EPOCH = 1000
 IMAGE_SIZE = 224
 
+def normalize_landmarks(lmks, image_size):
+    return lmks/image_size
+
+
 class DataSet:
-    def __init__(self, path, batch_size, in_channels=1):
+    def __init__(self, path, batch_size, image_size, normalize_lmks=True, in_channels=1):
         with np.load(path) as ds:
             # ds = np.load(path)
             self.data = ds['data']
             # normalize data
             # self.data = (self.data - 0.5) * 2
             self.labels = ds['labels']
+            if normalize_lmks:
+                print('normalize landmark data')
+                self.labels = normalize_landmarks(self.labels, image_size)
+
         self.idx = 0
         self.in_channels = in_channels
         self.batch_size = batch_size
@@ -44,8 +52,8 @@ class DataSet:
         self.idx = n
         return data, labels
 
-def get_pcomps(pca_path):
-    return np.load(pca_path)['shapes'][:(N_COMPONENTS + 1)] 
+def get_pcomps(pca_path, no_components):
+    return np.load(pca_path)['shapes'][:(no_components + 1)] 
 
 def train(data_path, pca_path, save_path,
                             image_size=IMAGE_SIZE,
@@ -57,6 +65,7 @@ def train(data_path, pca_path, save_path,
                             extractor=extractors.original_paper_feature_extractor,
                             quant_delay=50000,
                             step_per_save=300,
+                            no_components=N_COMPONENTS,
                             lr=0.001):
 
     print('train with image_size ', image_size, 
@@ -64,8 +73,9 @@ def train(data_path, pca_path, save_path,
         'batch_size=', batch_size, 
         'extractor=', extractor,
         'in_channels=', in_channels,
+        'no_components =', no_components,
         'learning rate = ', lr)
-    components = get_pcomps(pca_path)
+    components = get_pcomps(pca_path, no_components)
 
     # define input_variables
     input_shape = [None, image_size, image_size] if in_channels == 1 else [None, image_size, image_size, 3]
@@ -95,7 +105,7 @@ def train(data_path, pca_path, save_path,
     # with np.load(data_path) as np_data:
     #     train_data = np_data['data']
     #     train_labels = np_data['labels']
-    ds = DataSet(data_path, batch_size, in_channels=in_channels)
+    ds = DataSet(data_path, batch_size, image_size, in_channels=in_channels)
 
     saver = tf.train.Saver()
     with tf.Session() as sess: 
@@ -128,8 +138,9 @@ if __name__ == '__main__':
         '../../data/checkpoints/shapenet',
         checkpoint=None,
         image_size=224,
-        in_channels=1,
-        quantize=True, lr=0.001) 
+        in_channels=1,        
+        no_components=30,
+        quantize=False, lr=0.001) 
     # else:
     #     train('../data/labels_ibug_300W_train_112_grey.npz', 
     #         '../data/unrot_train_pca.npz',
