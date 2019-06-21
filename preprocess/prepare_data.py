@@ -6,6 +6,8 @@ from skimage.transform import AffineTransform, warp, resize
 import os 
 from matplotlib import pyplot as plt
 import random
+from pose_estimation import face_orientation, preview
+from skimage import img_as_ubyte
 # import matplotlib.patches as patches
 IMAGE_SIZE = 224
 CROP_OFFSET = 0.05
@@ -136,8 +138,17 @@ def resize_lmks(img, lmks, img_size):
     # lmks = warp(np.ascontiguousarray(lmks[:, [1, 0]]), trafo.inverse, output_shape=target_shape)[:, [1, 0]]
     return lmks
 
+def estimate_pose(frame, landmarks):
+    
+    # print(frame)
+    imgpts, modelpts, rotate_degree, nose = face_orientation(frame, landmarks)
+    # frame = img_as_ubyte(frame)
+    # preview(frame, landmarks, rotate_degree, nose, imgpts, modelpts)
+    return np.array(list(rotate_degree))
+    # return rotate_degree
+
 # def ensure_lmk_in_bound(lmks, w, h):
-def read_data(lmk_xml, img_size, to_grayscale=True, rotate=False):    
+def read_data(lmk_xml, img_size, to_grayscale=True, rotate=True, include_pose=True):    
     base_dir = os.path.dirname(lmk_xml)
     points, img_sizes, imgs = load_landmarks(lmk_xml)    
     # img_size = IMAGE_SIZE
@@ -150,6 +161,9 @@ def read_data(lmk_xml, img_size, to_grayscale=True, rotate=False):
     else:
         data = np.ndarray((len(imgs) * no_augmented, img_size, img_size, 3), dtype=np.float32)
     labels = np.ndarray((len(imgs)* no_augmented, *points[0].shape), dtype=np.int32)
+    pose_labels = None 
+    if include_pose:
+        pose_labels = np.ndarray((len(imgs)* no_augmented, 3), dtype=np.int32)
 
     def crop_and_resize(img, lmks, img_size):
         img, lmks = crop(img, lmks, is_gray=to_grayscale)
@@ -170,18 +184,21 @@ def read_data(lmk_xml, img_size, to_grayscale=True, rotate=False):
         original_lmks = points[i]        
         # view_img(original_im, original_lmks)
         img, lmks = crop_and_resize(original_im, original_lmks, img_size)   
+        poses = None if not include_pose else estimate_pose(img, lmks)
         # view_img(img, lmks)     
         fl_img, fl_lmks = flip(img, lmks)        
-        view_img(fl_img, fl_lmks)
+        fl_poses = None if not include_pose else estimate_pose(fl_img, fl_lmks)
+        # view_img(fl_img, fl_lmks)
 
         # print ('im size = ', im.shape, ' original ', original_im.shape)
         # make sure that face is at the center
         # original_im, original_lmks = crop(original_im, original_lmks, 0.4)
-        gen_imgs = [(img, lmks), (fl_img, fl_lmks)]
+        gen_imgs = [(img, lmks, poses), (fl_img, fl_lmks, fl_poses)]
         if rotate:
-            rot_img, rot_lmk = safe_rotate(original_im, original_lmks, random.choice([5, 10, 15, 20, -5, -10, -15, -20]))                    
+            rot_img, rot_lmk = safe_rotate(original_im, original_lmks, random.choice([5, 10, 15, 20, 30, -5, -10, -15, -20, -30]))                    
             rot_img, rot_lmk = crop_and_resize(rot_img, rot_lmk, img_size)
-            gen_imgs.append((rot_img, rot_lmk))
+            rot_poses = None if not include_pose else estimate_pose(rot_img, rot_lmk)
+            gen_imgs.append((rot_img, rot_lmk, rot_poses))
         # view_img(rot_img, rot_lmk)
         # rot_img_ccw, rot_lmk_ccw = safe_rotate(original_im, original_lmks, random.choice([-5, -10, -15, -20]))        
         # view_img(rot_img, rot_lmk, is_gray=to_grayscale)
@@ -190,27 +207,24 @@ def read_data(lmk_xml, img_size, to_grayscale=True, rotate=False):
         for idx, gen_img in enumerate(gen_imgs):            
             data[i * no_augmented + idx] = gen_img[0]
             labels[i * no_augmented + idx] = gen_img[1]
-            # w, h = gen_img[0].shape[1], gen_img[0].shape[0]
-            # for lm in gen_img[1]:
-            #     x, y = lm 
-            #     if x < 0 or x > w or y < 0 or y > h:
-            #         print('x vs w, y vs h', x, w, y, h, 'at pos ', idx)
-            #         break
-            # view_img(gen_img[0], gen_img[1])
-        # print('min pixel val = ', np.min(data))
-        # since float is in range 0 to 1
-        return None
+            if include_pose:
+                # print(gen_img[2])
+                pose_labels[i* no_augmented + idx] = gen_img[2]
+
+        # return None
         if i % 300 == 0:
             print('processed ', (i+1), '/', len(imgs), ' images')
-    return data, labels
+    return data, labels, pose_labels
 
-def randomize(dataset, labels):
+def randomize(dataset, labels, poses):
     permutation = np.random.permutation(labels.shape[0])
     shuffled_dataset = dataset[permutation,:,:]
     shuffled_labels = labels[permutation]
-    return shuffled_dataset, shuffled_labels
+    if poses is not None:
+        shuffled_poses = poses[permutation]
+    return shuffled_dataset, shuffled_labels, shuffled_poses
 
-def preprocess(lmk_xml, output_dir, image_size=IMAGE_SIZE, to_grayscale=True):
+def preprocess(lmk_xml, output_dir, image_size=IMAGE_SIZE, to_grayscale=True, include_pose=True):
     # save
     output_fn = os.path.basename(lmk_xml).replace('.xml', '_%s%s.npz' % (image_size, '_grey' if to_grayscale else ''))
     save_f = os.path.join(output_dir, output_fn)
@@ -218,32 +232,55 @@ def preprocess(lmk_xml, output_dir, image_size=IMAGE_SIZE, to_grayscale=True):
         print ('preprocessed file exist: ', save_f)
         return
 
-    data, labels = read_data(lmk_xml, image_size, to_grayscale=to_grayscale)
+    data, labels, poses = read_data(lmk_xml, 
+                                    image_size, 
+                                    to_grayscale=to_grayscale, 
+                                    include_pose=include_pose)
     # shuffle
-    data, labels = randomize(data, labels)    
+    data, labels, poses = randomize(data, labels, poses)    
     # visualize to test after randomize
     # view_img(data[1], labels[1])
-    np.savez_compressed(save_f, data=data, labels=labels)
+    np.savez_compressed(save_f, data=data, labels=labels, poses=poses)
+
+def verify_data(path):
+    img, lmks, poses = None, None, None
+    with np.load(path) as ds:
+        img = ds['data'][1]
+        lmks = ds['labels'][1]
+        poses = ds['poses'][1]
+
+    frame = img_as_ubyte(img)    
+    imgpts, modelpts, rotate_degree, nose = face_orientation(frame, lmks)
+    print('diff = ', np.array(rotate_degree) - np.array(poses))
+    preview(frame, lmks, rotate_degree, nose, imgpts, modelpts)
 
 
 if __name__ == '__main__':
     # preprocess train data
-    image_size = 228
-    to_grayscale = False
-    gen_val_data = True
-    gen_train_data = False
+    to_verify = False
 
-    if gen_train_data:
-        preprocess('/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/labels_ibug_300W_train.xml', 
-                    '../data', 
-                    image_size=image_size,
-                    to_grayscale=to_grayscale)
-    # preprocess test data,
-    if gen_val_data:
-        preprocess('/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/labels_ibug_300W_test.xml', 
-                    '../data', 
-                    image_size=image_size,
-                    to_grayscale=to_grayscale)
-    # t = '/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/245871800_1.jpg'
-    # im = load_img(t)
-    # print (im.shape)
+    if to_verify:
+        verify_data('../data/labels_ibug_300W_train_112.npz')
+    else:
+        image_size = 112
+        to_grayscale = False
+        gen_val_data = False
+        gen_train_data = True
+        include_pose = True
+
+        if gen_train_data:
+            preprocess('/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/labels_ibug_300W_train.xml', 
+                        '../data', 
+                        image_size=image_size,
+                        include_pose=include_pose,
+                        to_grayscale=to_grayscale)
+        # preprocess test data,
+        if gen_val_data:
+            preprocess('/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/labels_ibug_300W_test.xml', 
+                        '../data', 
+                        image_size=image_size,
+                        include_pose=include_pose,
+                        to_grayscale=to_grayscale)
+        # t = '/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/245871800_1.jpg'
+        # im = load_img(t)
+        # print (im.shape)

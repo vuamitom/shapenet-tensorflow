@@ -24,8 +24,10 @@ class DataSet:
             # normalize data
             self.data = normalize_data(self.data)# (self.data - 0.5) * 2
             self.labels = ds['labels']
+            self.poses = ds['poses']
             self.labels = self.labels.reshape((-1, 1, 136)).squeeze()
             if normalize_lmks:
+                self.poses = self.poses / 90.0 # make it from -1 to 1 
                 self.labels = normalize_landmarks(self.labels, image_size)
         self.idx = 0
         self.batch_size = batch_size
@@ -34,6 +36,7 @@ class DataSet:
         permutation = np.random.permutation(self.labels.shape[0])
         self.data = self.data[permutation,:,:,:]
         self.labels = self.labels[permutation]
+        self.poses = self.poses[permutation]
         self.idx = 0    
 
     def no_batches(self):
@@ -49,8 +52,9 @@ class DataSet:
         n = n if n < self.size() else self.size()
         data = self.data[self.idx:n, :]
         labels = self.labels[self.idx:n, :]
+        poses = self.poses[self.idx:n, :]
         self.idx = n
-        return data, labels
+        return data, labels, poses
 
 
 def train(data_path, save_path,
@@ -71,12 +75,13 @@ def train(data_path, save_path,
 
     inputs = tf.placeholder(tf.float32, shape=[None, image_size, image_size, 3], name='input_images')
     labels = tf.placeholder(tf.float32, shape=[None, 136], name='landmarks')
+    poses = tf.placeholder(tf.float32, shape=[None, 3], name='poses')
 
     preds, pose_preds = pfld_predict_landmarks(inputs,
                                 is_training=True)
     # define loss function
     
-    loss = loss_fn(preds, pose_preds, labels)
+    loss = loss_fn(preds, pose_preds, labels, poses)
 
     if quantize:
         print('add custom op for quantize aware training after delay', quant_delay)
@@ -91,6 +96,7 @@ def train(data_path, save_path,
         train_op = optimizer.minimize(loss, global_step) 
     
     ds = DataSet(data_path, batch_size, image_size)
+    print('Done loading dataset')
     if eval_data_path is not None:
         eval_ds = DataSet(eval_data_path, 500, image_size)
         last_eval_res = None
@@ -108,10 +114,10 @@ def train(data_path, save_path,
             # sess.run(iterator.initializer, )
             ds.reset_and_shuffle()
             for batch_no in range(0, ds.no_batches()):
-                train_data, train_labels = ds.next_batch()        
+                train_data, train_labels, train_poses = ds.next_batch()        
                 # train_data = (train_data - 0.5) * 2 
                 _, loss_val, step = sess.run([train_op, loss, global_step], feed_dict={
-                    inputs: train_data, labels: train_labels
+                    inputs: train_data, labels: train_labels, poses: train_poses
                 })
                 if step > 0 and step % 100 == 0:
                     print('step ', step, ' loss value = ', loss_val)
@@ -122,7 +128,7 @@ def train(data_path, save_path,
 
             if eval_ds is not None:
                 eval_ds.reset_and_shuffle()
-                eval_data, eval_labels = eval_ds.next_batch()
+                eval_data, eval_labels, _ = eval_ds.next_batch()
                 loss_val = sess.run(loss, feed_dict={inputs: eval_data, labels: eval_labels})
                 print ('eval results: loss val =', loss_val)
                 if last_eval_res is not None and loss_val < last_eval_res:
@@ -134,12 +140,11 @@ def train(data_path, save_path,
 
 
 if __name__ == '__main__':
-    train('../../data/labels_ibug_300W_train_64.npz', 
-        '../../data/checkpoints-pfld-64/shapenet',
-        checkpoint='../../data/checkpoints-pfld-64/pfld-218400',
-        image_size=64,
-        eval_data_path='../../data/labels_ibug_300W_test_64.npz',
-        quantize=False, lr=0.001) 
+    train('../../data/labels_ibug_300W_train_112.npz', 
+        '../../data/checkpoints-pfld-112/shapenet',
+        checkpoint=None,
+        image_size=112,        
+        quantize=False, lr=0.0001) 
     # else:
     #     train('../data/labels_ibug_300W_train_112_grey.npz', 
     #         '../data/unrot_train_pca.npz',
