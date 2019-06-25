@@ -4,8 +4,9 @@ import numpy as np
 import tensorflow as tf
 import math
 import sys
+import os
 
-BATCH_SIZE = 20
+BATCH_SIZE = 256
 NO_EPOCH = 1000
 IMAGE_SIZE = 224
 
@@ -15,11 +16,20 @@ def normalize_landmarks(lmks, image_size):
 
 
 def normalize_data(data):
-    # return (data - 0.5) * 2
-    return data
+    return (data - 0.5) * 2
+    # return data
 
 class DataSet:
-    def __init__(self, path, batch_size, image_size, normalize_lmks=True):
+    def __init__(self, path, batch_size, image_size, 
+                            class_weight_path=None,
+                            normalize_lmks=True):
+        if class_weight_path is None:
+            self.class_weights = None
+        else:
+            print('open class_weight_path', class_weight_path)
+            with np.load(class_weight_path) as cw:
+                self.class_weights = cw['weights']
+
         with np.load(path) as ds:
             # ds = np.load(path)
             self.data = ds['data']
@@ -31,6 +41,10 @@ class DataSet:
             if normalize_lmks:
                 self.poses = self.poses / 90.0 # make it from -1 to 1 
                 self.labels = normalize_landmarks(self.labels, image_size)
+
+        if self.class_weights is None:
+            self.class_weights = np.ones((self.labels.shape[0], 1))
+
         self.idx = 0
         self.batch_size = batch_size
 
@@ -39,6 +53,7 @@ class DataSet:
         self.data = self.data[permutation,:,:,:]
         self.labels = self.labels[permutation]
         self.poses = self.poses[permutation]
+        self.class_weights = self.class_weights[permutation]
         self.idx = 0
 
     def reset(self):
@@ -58,8 +73,9 @@ class DataSet:
         data = self.data[self.idx:n, :]
         labels = self.labels[self.idx:n, :]
         poses = self.poses[self.idx:n, :]
+        class_weights = self.class_weights[self.idx:n, :]
         self.idx = n
-        return data, labels, poses
+        return data, labels, poses, class_weights
 
 
 def train(data_path, save_path,
@@ -71,6 +87,8 @@ def train(data_path, save_path,
                             quant_delay=50000,
                             step_per_save=300,
                             eval_data_path=None,
+                            class_weight_path=None,
+                            depth_multiplier=1.0,
                             lr=0.001):
 
     print('train with image_size ', image_size, 
@@ -81,11 +99,13 @@ def train(data_path, save_path,
     inputs = tf.placeholder(tf.float32, shape=[None, image_size, image_size, 3], name='input_images')
     labels = tf.placeholder(tf.float32, shape=[None, 136], name='landmarks')
     poses = tf.placeholder(tf.float32, shape=[None, 3], name='poses')
+    class_weights = tf.placeholder(tf.float32, shape=[None, 1], name='class_weights')
 
-    preds, pose_preds, _ = pfld_predict_landmarks(inputs,
+    preds, pose_preds, _ = pfld_predict_landmarks(inputs, image_size,
+                                depth_multiplier=depth_multiplier,
                                 is_training=True)
     # define loss function
-    loss = pfld_loss_fn(preds, pose_preds, labels, poses)
+    loss = pfld_loss_fn(preds, pose_preds, labels, poses, class_weights)
     l1_loss = tf.losses.absolute_difference(labels*image_size, preds*image_size)
     aux_loss = tf.losses.absolute_difference(poses*90, pose_preds*90)
 
@@ -102,8 +122,9 @@ def train(data_path, save_path,
         print('add dependency on "moving avg" for batch_norm')        
         train_op = optimizer.minimize(loss, global_step) 
     
-    ds = DataSet(data_path, batch_size, image_size)
+    ds = DataSet(data_path, batch_size, image_size, class_weight_path=class_weight_path)
     print('Done loading dataset')
+
     eval_ds=None
     if eval_data_path is not None:
         eval_ds = DataSet(eval_data_path, 500, image_size)
@@ -123,10 +144,11 @@ def train(data_path, save_path,
             # ds.reset_and_shuffle()
             ds.reset()
             for batch_no in range(0, ds.no_batches()):
-                train_data, train_labels, train_poses = ds.next_batch()        
+                train_data, train_labels, train_poses, train_cw = ds.next_batch()        
                 # train_data = (train_data - 0.5) * 2 
                 _, loss_val, l1_loss_val, mse_loss_val, step = sess.run([train_op, loss, l1_loss, aux_loss, global_step], feed_dict={
-                    inputs: train_data, labels: train_labels, poses: train_poses
+                    inputs: train_data, labels: train_labels, poses: train_poses,
+                    class_weights: train_cw
                 })
                 if step > 0 and step % 100 == 0:
                     print('step ', step, ' loss value = ', loss_val, 'l1 loss=', l1_loss_val, 'aux loss=', mse_loss_val)
@@ -150,10 +172,13 @@ def train(data_path, save_path,
 
 
 if __name__ == '__main__':
-    train('../../data/labels_ibug_300W_train_112.npz', 
-        '../../data/checkpoints-pfld-112/shapenet',
+    train('../../data/labels_ibug_300W_train_64.npz', 
+        '../../data/checkpoints-pfld-64/shapenet',
         checkpoint=None,
-        image_size=112,        
+        batch_size=256,
+        image_size=64,
+        depth_multiplier=0.75,
+        class_weight_path='../../data/labels_ibug_300W_train_64_classes.npz',        
         quantize=False, lr=0.0001) 
     # else:
     #     train('../data/labels_ibug_300W_train_112_grey.npz', 

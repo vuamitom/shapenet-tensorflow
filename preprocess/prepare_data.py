@@ -141,7 +141,7 @@ def resize_lmks(img, lmks, img_size):
 def estimate_pose(frame, landmarks):
     
     # print(frame)
-    imgpts, modelpts, rotate_degree, nose = face_orientation(frame, landmarks)
+    imgpts, modelpts, rotate_degree, nose = face_orientation(frame.shape, landmarks)
     # frame = img_as_ubyte(frame)
     # preview(frame, landmarks, rotate_degree, nose, imgpts, modelpts)
     return np.array(list(rotate_degree))
@@ -156,15 +156,17 @@ def read_data(lmk_xml, img_size, to_grayscale=True, rotate=True, include_pose=Tr
         no_augmented = 3
     else:
         no_augmented = 2
+
     if to_grayscale:
         data = np.ndarray((len(imgs) * no_augmented, img_size, img_size), dtype=np.float32)
     else:
         data = np.ndarray((len(imgs) * no_augmented, img_size, img_size, 3), dtype=np.float32)
-    labels = np.ndarray((len(imgs)* no_augmented, *points[0].shape), dtype=np.int32)
+    labels = np.ndarray((len(imgs)* no_augmented, *points[0].shape), dtype=np.float32)
     pose_labels = None 
     if include_pose:
-        pose_labels = np.ndarray((len(imgs)* no_augmented, 3), dtype=np.int32)
-
+        pose_labels = np.ndarray((len(imgs)* no_augmented, 3), dtype=np.float32)
+    meta = np.ndarray((len(imgs) * no_augmented, ), dtype=np.int32)
+    
     def crop_and_resize(img, lmks, img_size):
         img, lmks = crop(img, lmks, is_gray=to_grayscale)
         # view_img(img, lmks)
@@ -183,7 +185,9 @@ def read_data(lmk_xml, img_size, to_grayscale=True, rotate=True, include_pose=Tr
 
         original_lmks = points[i]        
         # view_img(original_im, original_lmks)
-        img, lmks = crop_and_resize(original_im, original_lmks, img_size)   
+        img, lmks = crop_and_resize(original_im, original_lmks, img_size)  
+        # print(lmks) 
+        # break 
         poses = None if not include_pose else estimate_pose(img, lmks)
         # view_img(img, lmks)     
         fl_img, fl_lmks = flip(img, lmks)        
@@ -206,24 +210,25 @@ def read_data(lmk_xml, img_size, to_grayscale=True, rotate=True, include_pose=Tr
         # view_img(rot_img, rot_lmk, is_gray=to_grayscale)
         for idx, gen_img in enumerate(gen_imgs):            
             data[i * no_augmented + idx] = gen_img[0]
-            labels[i * no_augmented + idx] = gen_img[1]
+            labels[i * no_augmented + idx] = gen_img[1]            
             if include_pose:
                 # print(gen_img[2])
                 pose_labels[i* no_augmented + idx] = gen_img[2]
-
+        meta[i*no_augmented:(i*no_augmented + len(gen_imgs))] = i 
         # return None
         if i % 300 == 0:
             print('processed ', (i+1), '/', len(imgs), ' images')
-    return data, labels, pose_labels
+    return data, labels, pose_labels, meta
 
-def randomize(dataset, labels, poses):
+def randomize(dataset, labels, poses, meta):
     permutation = np.random.permutation(labels.shape[0])
     shuffled_dataset = dataset[permutation,:,:]
     shuffled_labels = labels[permutation]
     shuffled_poses = None
     if poses is not None:
         shuffled_poses = poses[permutation]
-    return shuffled_dataset, shuffled_labels, shuffled_poses
+    shuffle_meta = meta[permutation]
+    return shuffled_dataset, shuffled_labels, shuffled_poses, shuffle_meta
 
 def preprocess(lmk_xml, output_dir, image_size=IMAGE_SIZE, to_grayscale=True, include_pose=True):
     # save
@@ -233,37 +238,164 @@ def preprocess(lmk_xml, output_dir, image_size=IMAGE_SIZE, to_grayscale=True, in
         print ('preprocessed file exist: ', save_f)
         return
 
-    data, labels, poses = read_data(lmk_xml, 
+    data, labels, poses, meta = read_data(lmk_xml, 
                                     image_size, 
                                     to_grayscale=to_grayscale, 
                                     include_pose=include_pose)
     # shuffle
-    data, labels, poses = randomize(data, labels, poses)    
+    data, labels, poses, meta = randomize(data, labels, poses, meta)    
     # visualize to test after randomize
     # view_img(data[1], labels[1])
     np.savez_compressed(save_f, data=data, labels=labels, poses=poses)
 
+    with open(save_f + '.meta', 'w') as f:
+        f.write('\n'.join([str(_) for _ in list(meta)]))
+
+
 def verify_data(path):
+    # with open('../data/labels_ibug_300W_train_80.npz.meta', 'r') as f:
+    #     lines = f.readlines()
+    # print(lines[175])
+    # print([(idx, l) for idx, l in enumerate(lines) if l == lines[175]])
+    # _, _, imgs = load_landmarks('/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/labels_ibug_300W_train.xml') 
+    # print(imgs[int(lines[175])])
+
     img, lmks, poses = None, None, None
+    total_diff = 0
+    total = 0
     with np.load(path) as ds:
-        img = ds['data'][1]
-        lmks = ds['labels'][1]
-        poses = ds['poses'][1]
+        total = ds['labels'].shape[0]
+        print('total = ', total)
+        for i in range (0, ds['labels'].shape[0]):
+            # if not i in [175]:
+            #     continue
+            img = ds['data'][i]
+            lmks = ds['labels'][i]
+            poses = ds['poses'][i]
+            imgpts, modelpts, rotate_degree, nose = face_orientation(img.shape, lmks)
+            diff = np.sum(np.abs(np.array(rotate_degree) - np.array(poses)))
+            if diff > 20 or True:
+                print('diff = ', diff, 'i = ', i, ' old = ', poses, 'new = ', rotate_degree)
+                # imgpts, modelpts, rotate_degree, nose = face_orientation((112, 112, 3), lmks)
+                # print('a1', rotate_degree)
+                # imgpts, modelpts, rotate_degree, nose = face_orientation((112, 112, 3), lmks)
+                # print('a2', rotate_degree)
+                # imgpts, modelpts, rotate_degree, nose = face_orientation((112, 112, 3), lmks)
+                # print('a3', rotate_degree)
+                # imgpts, modelpts, rotate_degree, nose = face_orientation(frame, lmks)
+    # print('diff = ', np.array(rotate_degree) - np.array(poses))
+                # img = ds['data'][i]
+                # frame = img_as_ubyte(img)  
+                # preview(frame, lmks, poses, nose, imgpts, modelpts)
+                # print('----------------------__>>>>>')
+                # preview(frame, lmks, rotate_degree, nose, imgpts, modelpts)
+                total_diff += 1
+                # break 
+                
+            if i % 100 ==0:
+                print((i+1), 'done', 'diff = ', total_diff)
 
-    frame = img_as_ubyte(img)    
-    imgpts, modelpts, rotate_degree, nose = face_orientation(frame, lmks)
-    print('diff = ', np.array(rotate_degree) - np.array(poses))
-    preview(frame, lmks, rotate_degree, nose, imgpts, modelpts)
+    print('total diff = ', total_diff, '/', total)
+    # frame = img_as_ubyte(img)    
+    # imgpts, modelpts, rotate_degree, nose = face_orientation(frame, lmks)
+    # print('diff = ', np.array(rotate_degree) - np.array(poses))
+    # preview(frame, lmks, rotate_degree, nose, imgpts, modelpts
 
+def pose_to_class(roll, pitch, yaw):
+    # r, p, y = 0, 0, 0
+    # if roll < -25: 
+    #     r = 1
+    # elif roll > 25:
+    #     r = 2
+
+    # if yaw < -20:
+    #     y = 1
+    # elif yaw > 20:
+    #     y = 2
+
+    # if pitch < -30:
+    #     p = 1
+    # elif pitch > 30:
+    #     p = 2
+
+    # return r * (3**2) + p * 3 + y
+    angles = [roll, pitch, yaw]
+
+    if yaw > 23:
+        return 1
+    elif yaw < -23:
+        return 2
+    elif pitch > 30:
+        return 3
+    elif pitch < -30:
+        return 4
+    elif roll > 40:
+        return 5
+    elif roll < -40:
+        return 6
+    return 0
+
+def stats(path):
+    img, lmks, poses = None, None, None
+    no_classes = 7
+    stats = [0] * no_classes
+    point_per_class = [0.0] * no_classes
+    
+    with np.load(path) as ds:
+
+        weights = np.ndarray((ds['poses'].shape[0], 1), dtype=np.float32)
+
+        for s in range(0, ds['poses'].shape[0]):
+            poses = ds['poses'][s]                        
+            roll, pitch, yaw = poses
+            # if roll > 50 or roll < -50:
+            #     print('poses = ', poses)
+            #     lmks = ds['labels'][s]
+            #     imgpts, modelpts, rotate_degree, nose = face_orientation((80, 80, 3), lmks)
+            #         # print('3')
+            #         # print('diff = ', np.array(rotate_degree) - np.array(poses))
+            #     preview(ds['data'][s], lmks, rotate_degree, nose, imgpts, modelpts)
+            c = pose_to_class(roll, pitch, yaw)
+            stats[c] += 1
+            weights[s][0] = c
+
+        total = ds['poses'].shape[0]
+        stats = total / np.array(stats, dtype=np.float32)
+        # print ('scores = ', stats)
+
+        for s in range(0, ds['poses'].shape[0]):
+            weights[s][0] = stats[int(weights[s][0])]
+            # if c == 3:
+            #     print('---->>>>', s)
+    print('weights = ', weights)
+    print ('stats = ', stats)
+    save_f = os.path.basename(path) 
+    save_f = save_f.replace('.npz', '') + '_classes.npz'
+    np.savez_compressed(os.path.join(os.path.dirname(path), save_f), 
+                        weights=weights)
+            # if pitch  < -25:
+            #     print('roll, pit, yaw', roll, pitch, yaw)
+            #     temp = ds['data'][s]    
+            #     # print('0')
+            #     frame = img_as_ubyte(temp)
+            #     print('1')
+            #     lmks = ds['labels'][s]    
+            #     print('2')
+            #     imgpts, modelpts, rotate_degree, nose = face_orientation(frame.shape, lmks)
+            #     print('3')
+            #     print('diff = ', np.array(rotate_degree) - np.array(poses))
+            #     preview(frame, lmks, rotate_degree, nose, imgpts, modelpts)
+            #     break
 
 if __name__ == '__main__':
     # preprocess train data
-    to_verify = False
+    to_verify = True
 
     if to_verify:
-        verify_data('../data/labels_ibug_300W_train_112.npz')
+        # verify_data('../data/labels_ibug_300W_train_80.npz')
+        stats('../data/labels_ibug_300W_train_64.npz')
     else:
-        image_size = 112
+        image_size = 64
         to_grayscale = False
         gen_val_data = False
         gen_train_data = True

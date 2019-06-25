@@ -15,10 +15,10 @@ from train_pfld import normalize_data
 matplotlib.use("TkAgg")
 # IMAGE_SIZE = 224
 
-def predict(data, model_path, image_size=IMAGE_SIZE):
+def predict(data, model_path, image_size=IMAGE_SIZE, depth_multiplier=1.0):
     input_shape = [None, image_size, image_size, 3]
     inputs = tf.placeholder(tf.float32, shape=input_shape, name='input_images')
-    preds, _, unused = predict_landmarks(inputs, is_training=False)    
+    preds, _, unused = predict_landmarks(inputs, is_training=False, depth_multiplier=depth_multiplier)    
     print('predict tensor = ', preds)
     saver = tf.train.Saver()
     # g = tf.get_default_graph()
@@ -49,7 +49,10 @@ def predict_tflite(data, model_path):
 def crop(img, box):
     return img[box.top(): box.bottom(), box.left(): box.right()]
 
-def predict_single(img_path, model_path, image_size=IMAGE_SIZE, normalize_lmks=True):
+def predict_single(img_path, model_path, 
+                image_size=IMAGE_SIZE, 
+                depth_multiplier=1.0,
+                normalize_lmks=True):
     # get face bound
     img_size = image_size
     img = dlib.load_rgb_image(img_path)
@@ -74,7 +77,8 @@ def predict_single(img_path, model_path, image_size=IMAGE_SIZE, normalize_lmks=T
         lmks = predict_tflite(np.reshape(normalized_data, (1, *normalized_data.shape)).astype(np.float32), model_path)[0]
     else:
         lmks = predict(np.reshape(normalized_data, (1, *normalized_data.shape)), model_path,                    
-                        image_size=image_size)[0]
+                        image_size=image_size,
+                        depth_multiplier=depth_multiplier)[0]
     # print('landmark = ', lmks)
     if normalize_lmks:
         for i in range(0, 68):
@@ -98,7 +102,7 @@ if __name__ == '__main__':
             image_size=64)
     elif model == 'pfld-112':
         predict_single('/home/tamvm/Downloads/test_face_tamvm_2.jpg', #'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
-            '../../data/checkpoints-pfld-112/pfld-1964400' if not use_tflite else '../../data/pfld-112-quant.tflite',
+            '../../data/checkpoints-pfld-112/pfld-1983600' if not use_tflite else '../../data/pfld-112-quant.tflite',
             # '../../data/pfld-64.tflite',
             image_size=112)
     else:

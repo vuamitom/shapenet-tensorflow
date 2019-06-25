@@ -19,8 +19,8 @@ RIGHT_EYE = 46 -1
 LEFT_MOUTH = 49 -1
 RIGHT_MOUTH = 55 -1
 
-def face_orientation(frame, landmarks):
-    size = frame.shape #(height, width, color_channel)
+def face_orientation(shape, landmarks):
+    size = shape #(height, width, color_channel)
     image_points = np.array([
                             (landmarks[NOSE][0], landmarks[NOSE][1]),     # Nose tip
                             (landmarks[CHIN][0], landmarks[CHIN][1]),       # Chin

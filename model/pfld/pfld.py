@@ -13,13 +13,13 @@ op = lib.op
 import math
 # https://arxiv.org/pdf/1902.10859.pdf
 
-def loss_fn(preds, pred_pose, labels, pose_labels):
+def loss_fn(preds, pred_pose, labels, pose_labels, class_weights):
     print('preds = ', preds)
     print('pred pose = ', pred_pose)
     half_pi = tf.constant(math.pi/2)
     beta = tf.reduce_sum(1 - tf.cos((pred_pose - pose_labels) * half_pi), axis=-1)
     l2 = tf.reduce_sum((preds - labels)**2, axis=-1)
-    return tf.reduce_mean(tf.multiply(beta, l2))/2
+    return tf.reduce_mean( tf.multiply(class_weights, tf.multiply(beta, l2)) )/2
 
 
 def dummy_depth_multiplier(output_params,
@@ -33,7 +33,7 @@ def conv_hyperparams_fn(**kwargs):
     with tf.contrib.slim.arg_scope([]) as sc:
         return sc
 
-def auxiliary_net(inputs, is_training=True):
+def auxiliary_net(inputs, image_size, is_training=True):
     # TODO: handle is_training for slim.batch_norm
     # print('----------inputs to auxiliary_net--------------', inputs)
     nodes = []
@@ -52,7 +52,8 @@ def auxiliary_net(inputs, is_training=True):
             net = slim.conv2d(net, 32, [3, 3], stride=2, scope='aux_conv_3')
             nodes.append(net)
             # print('after second to last conv2d', net)
-            net = slim.conv2d(net, 128, [7, 7], stride=1, scope='aux_conv_4', padding='VALID')
+            kernel_size = ([7, 7] if image_size==112 else ([5,5] if image_size == 80 else [4, 4]))
+            net = slim.conv2d(net, 128, kernel_size, stride=1, scope='aux_conv_4', padding='VALID')
             nodes.append(net)
             # print('after last conv2d', net)
             net = slim.fully_connected(net, 32, scope='aux_fc_1', 
@@ -73,14 +74,18 @@ def auxiliary_net(inputs, is_training=True):
             print('auxiliary_net output', net)
         return net, nodes        
         
-def backbone_net(inputs, is_training=True):
-    pad_to_multiple = 14
+def backbone_net(inputs, image_size, is_training=True, depth_multiplier=0.5):
+    
+    pad_to_multiple = 14 if image_size == 112 else (10 if image_size == 80 else 8)
     use_explicit_padding = False
-    depth_multiplier = 1.0
+    depth_multiplier = depth_multiplier
+
+    print('construct backbone_net for image_size', image_size, 'depth_multiplier = ', depth_multiplier)
     use_depthwise = True
     override_base_feature_extractor_hyperparams = False
     reuse_weights = None
     min_depth = 16
+
     specs = [
             op(slim.conv2d, stride=2, num_outputs=64, kernel_size=[3, 3]),
             # todo: Depthwise Conv3×3
@@ -101,9 +106,11 @@ def backbone_net(inputs, is_training=True):
             num_outputs=128,
             stride=1))
 
+    kernel_size = [7, 7] if image_size == 112 else ([5,5] if image_size == 80 else [4,4])
     specs.append(op(ops.expanded_conv, stride=1, num_outputs=16, scope='S1'))
     specs.append(op(slim.conv2d, stride=2, kernel_size=[3, 3], num_outputs=32, scope='S2'))
-    specs.append(op(slim.conv2d, stride=1, kernel_size=[7, 7], num_outputs=128, scope='S3', padding='VALID'))
+    specs.append(op(slim.conv2d, stride=1, kernel_size=kernel_size, 
+        num_outputs=128, scope='S3', padding='VALID'))
 
     # print('specs = ', specs, ' len = ', len(specs))
 
@@ -172,15 +179,15 @@ def backbone_net(inputs, is_training=True):
                             weights_initializer=slim.xavier_initializer()), (image_features['layer_1'], inputs, image_features['layer_2'])
 
 
-def predict_landmarks(inputs, is_training=True, *args, **kwargs):
-    mobilenet_output, landmarks, unused = backbone_net(inputs, is_training=is_training)
+def predict_landmarks(inputs, image_size, is_training=True, depth_multiplier=0.5, *args, **kwargs):
+    mobilenet_output, landmarks, unused = backbone_net(inputs, image_size, is_training=is_training, depth_multiplier=depth_multiplier)
     # print('output = ', output)
     # print('layer 0', mobilenet_output['layer_0'])
     # print('layer 4/output ', mobilenet_output['layer_4/output'])
     # print('layer 15', mobilenet_output['layer_15'])
     # print('layer 15/output ', mobilenet_output['layer_15/output'])
     if is_training:
-        pose, _ = auxiliary_net(mobilenet_output['layer_4'])
+        pose, _ = auxiliary_net(mobilenet_output['layer_4'], image_size)
     else:
         pose = None
     return landmarks, pose, unused
