@@ -18,15 +18,20 @@ matplotlib.use("TkAgg")
 def predict(data, model_path, image_size=IMAGE_SIZE):
     input_shape = [None, image_size, image_size, 3]
     inputs = tf.placeholder(tf.float32, shape=input_shape, name='input_images')
-    preds= predict_landmarks(inputs, is_training=False)    
+    preds, _, unused = predict_landmarks(inputs, is_training=False)    
+    print('predict tensor = ', preds)
     saver = tf.train.Saver()
     # g = tf.get_default_graph()
     # tf.contrib.quantize.create_eval_graph(input_graph=g)
     with tf.Session() as sess:         
-        saver.restore(sess, model_path)
+        saver.restore(sess, model_path)   
         # sess.run(tf.global_variables_initializer())
-        results= sess.run(preds, feed_dict={inputs: data})
+        results, ur_0, ur_1, ur_2= sess.run([preds, unused[0], unused[1], unused[2]], feed_dict={inputs: data})
         print('landmarks = ', results)
+        print('S1 ', ur_0)
+        print('S2 ', ur_1)
+        print('S3 ', ur_2)
+        # print('S1 > ')
         return results
 
 def predict_tflite(data, model_path):
@@ -44,7 +49,7 @@ def predict_tflite(data, model_path):
 def crop(img, box):
     return img[box.top(): box.bottom(), box.left(): box.right()]
 
-def predict_single(img_path, model_path, image_size=IMAGE_SIZE, normalize_lmks=False):
+def predict_single(img_path, model_path, image_size=IMAGE_SIZE, normalize_lmks=True):
     # get face bound
     img_size = image_size
     img = dlib.load_rgb_image(img_path)
@@ -56,7 +61,7 @@ def predict_single(img_path, model_path, image_size=IMAGE_SIZE, normalize_lmks=F
     data = crop(oridata, box)
     data = resize(data, (img_size, img_size), anti_aliasing=True, mode='reflect') 
     # view_img(data, None)    
-
+    normalized_data = normalize_data(data)
     if model_path.endswith('.tflite'):
         # print('using tflite model ', model_path)
         # is_unint8 = model_path.find('uint8') >= 0 
@@ -65,36 +70,39 @@ def predict_single(img_path, model_path, image_size=IMAGE_SIZE, normalize_lmks=F
         #     lmks = predict_tflite((np.reshape(data, (1, *data.shape)) * 255).astype(np.uint8), model_path)[0]
         # else:
         print('float model')
-        normalized_data = normalize_data(data)
+        
         lmks = predict_tflite(np.reshape(normalized_data, (1, *normalized_data.shape)).astype(np.float32), model_path)[0]
     else:
-        lmks = predict(np.reshape(data, (1, *data.shape)), model_path,                    
+        lmks = predict(np.reshape(normalized_data, (1, *normalized_data.shape)), model_path,                    
                         image_size=image_size)[0]
     # print('landmark = ', lmks)
     if normalize_lmks:
         for i in range(0, 68):
-            lmks[i*2] = (lmks[i*2]+0.5)*image_size
-            lmks[i*2+1] = (lmks[i*2+1] + 0.5)*image_size
+            lmks[i*2] = (lmks[i*2])* image_size# (lmks[i*2]/2+0.5)*image_size
+            lmks[i*2+1] = (lmks[i*2+1]) * image_size# (lmks[i*2+1]/2 + 0.5)*image_size
+        # print('landmarks after denorm', lmks)
     lmks = lmks.reshape((68, 2))
+
     view_img(data, lmks)
 
 if __name__ == '__main__':
     # 2960256451_1.jpg
     # '/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/testset/30427236_1.jpg'
     use_tflite = False
-    model = 'pfld-80'
+    model = 'pfld-112'
     if model == 'pfld-64':
         predict_single('/home/tamvm/Downloads/test_face_tamvm_2.jpg', #'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
             '../../data/checkpoints-pfld-64/pfld-227200' if not use_tflite else '../../data/pfld-64-quant.tflite',
             # '../../data/pfld-64.tflite',
+            normalize_lmks=False,
             image_size=64)
     elif model == 'pfld-112':
-        predict_single('/home/tamvm/Downloads/test_face_tamvm_1.jpg', #'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
-            '../../data/checkpoints-pfld-112/pfld-426000' if not use_tflite else '../../data/pfld-64-quant.tflite',
+        predict_single('/home/tamvm/Downloads/test_face_tamvm_2.jpg', #'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
+            '../../data/checkpoints-pfld-112/pfld-1964400' if not use_tflite else '../../data/pfld-112-quant.tflite',
             # '../../data/pfld-64.tflite',
             image_size=112)
     else:
-        predict_single('/home/tamvm/Downloads/test_face_tamvm_3.jpg', #'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
+        predict_single('/home/tamvm/Downloads/test_face_tamvm_1.jpg', #'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
             '../../data/landmark_80pose.tflite',
             normalize_lmks=True,
             # '../../data/pfld-64.tflite',

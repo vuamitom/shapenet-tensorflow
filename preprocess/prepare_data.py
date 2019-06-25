@@ -220,6 +220,7 @@ def randomize(dataset, labels, poses):
     permutation = np.random.permutation(labels.shape[0])
     shuffled_dataset = dataset[permutation,:,:]
     shuffled_labels = labels[permutation]
+    shuffled_poses = None
     if poses is not None:
         shuffled_poses = poses[permutation]
     return shuffled_dataset, shuffled_labels, shuffled_poses

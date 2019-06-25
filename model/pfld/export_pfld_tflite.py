@@ -6,7 +6,7 @@ from train_pfld import normalize_data
 
 def representative_dataset():
     samples = None
-    with np.load('../../data/labels_ibug_300W_train_64.npz') as ds:
+    with np.load('../../data/labels_ibug_300W_train_112.npz') as ds:
         samples = ds['data'][0:500]
     samples = normalize_data(samples)
     for input_value in samples:
@@ -20,7 +20,7 @@ def export(output_path, model_path,
 
     input_shape = [1, image_size, image_size, 3]
     inputs = tf.placeholder(tf.float32, shape=input_shape, name='input_images')
-    preds = predict_landmarks(inputs, 
+    preds,_,_ = predict_landmarks(inputs, 
         is_training=False)
     # print('nodes name ', [n.name for n in tf.get_default_graph().as_graph_def().node])
 
@@ -57,7 +57,7 @@ def export(output_path, model_path,
             f.write(tflite_model)
 
 if __name__ == '__main__':
-    output_path = '../../data/pfld-64.tflite'
-    model_path = '../../data/checkpoints-pfld-64/pfld-227200'
-    export(output_path, model_path, image_size=64, quantize_uint8=False)
+    output_path = '../../data/pfld-112.tflite'
+    model_path = '../../data/checkpoints-pfld-112/pfld-1894000'
+    export(output_path, model_path, image_size=112, quantize_uint8=False)
 

@@ -1,5 +1,5 @@
 # from shapnet import predict_landmarks as shapenet_predict_landmarks
-from pfld import predict_landmarks as pfld_predict_landmarks, loss_fn
+from pfld import predict_landmarks as pfld_predict_landmarks, loss_fn as pfld_loss_fn
 import numpy as np
 import tensorflow as tf
 import math
@@ -10,11 +10,13 @@ NO_EPOCH = 1000
 IMAGE_SIZE = 224
 
 def normalize_landmarks(lmks, image_size):
-    return (lmks/image_size - 0.5) * 2
+    # return (lmks/image_size - 0.5) * 2
+    return lmks/image_size
 
 
 def normalize_data(data):
-    return (data - 0.5) * 2
+    # return (data - 0.5) * 2
+    return data
 
 class DataSet:
     def __init__(self, path, batch_size, image_size, normalize_lmks=True):
@@ -37,7 +39,10 @@ class DataSet:
         self.data = self.data[permutation,:,:,:]
         self.labels = self.labels[permutation]
         self.poses = self.poses[permutation]
-        self.idx = 0    
+        self.idx = 0
+
+    def reset(self):
+        self.idx = 0
 
     def no_batches(self):
         return math.floor(self.size() * 1.0/ self.batch_size)
@@ -77,17 +82,19 @@ def train(data_path, save_path,
     labels = tf.placeholder(tf.float32, shape=[None, 136], name='landmarks')
     poses = tf.placeholder(tf.float32, shape=[None, 3], name='poses')
 
-    preds, pose_preds = pfld_predict_landmarks(inputs,
+    preds, pose_preds, _ = pfld_predict_landmarks(inputs,
                                 is_training=True)
     # define loss function
-    
-    loss = loss_fn(preds, pose_preds, labels, poses)
+    loss = pfld_loss_fn(preds, pose_preds, labels, poses)
+    l1_loss = tf.losses.absolute_difference(labels*image_size, preds*image_size)
+    aux_loss = tf.losses.absolute_difference(poses*90, pose_preds*90)
 
     if quantize:
         print('add custom op for quantize aware training after delay', quant_delay)
         tf.contrib.quantize.create_training_graph(input_graph=tf.get_default_graph(), quant_delay=quant_delay)
-    global_step = tf.train.get_or_create_global_step()    
-    optimizer = tf.train.AdamOptimizer(lr, 0.9, 0.999)
+    global_step = tf.train.get_or_create_global_step() 
+    print('adam optimizer with weigh decay 10^-6')   
+    optimizer = tf.contrib.opt.AdamWOptimizer(10 ** -6, learning_rate=lr, beta1=0.9, name='Adam')
 
     # refer to https://github.com/tensorflow/tensorflow/blob/master/tensorflow/contrib/layers/python/layers/layers.py#L473
     update_ops = tf.compat.v1.get_collection(tf.GraphKeys.UPDATE_OPS)
@@ -97,6 +104,7 @@ def train(data_path, save_path,
     
     ds = DataSet(data_path, batch_size, image_size)
     print('Done loading dataset')
+    eval_ds=None
     if eval_data_path is not None:
         eval_ds = DataSet(eval_data_path, 500, image_size)
         last_eval_res = None
@@ -112,20 +120,22 @@ def train(data_path, save_path,
 
         for epoch in range(0, no_epoch):
             # sess.run(iterator.initializer, )
-            ds.reset_and_shuffle()
+            # ds.reset_and_shuffle()
+            ds.reset()
             for batch_no in range(0, ds.no_batches()):
                 train_data, train_labels, train_poses = ds.next_batch()        
                 # train_data = (train_data - 0.5) * 2 
-                _, loss_val, step = sess.run([train_op, loss, global_step], feed_dict={
+                _, loss_val, l1_loss_val, mse_loss_val, step = sess.run([train_op, loss, l1_loss, aux_loss, global_step], feed_dict={
                     inputs: train_data, labels: train_labels, poses: train_poses
                 })
                 if step > 0 and step % 100 == 0:
-                    print('step ', step, ' loss value = ', loss_val)
+                    print('step ', step, ' loss value = ', loss_val, 'l1 loss=', l1_loss_val, 'aux loss=', mse_loss_val)
                     if step % step_per_save == 0 and eval_ds is None:
                         # save
                         result_path = saver.save(sess, save_path, global_step=step)
                         print ('saved to ', result_path)
 
+            print('end of epoch')
             if eval_ds is not None:
                 eval_ds.reset_and_shuffle()
                 eval_data, eval_labels, _ = eval_ds.next_batch()
