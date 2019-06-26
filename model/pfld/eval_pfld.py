@@ -18,7 +18,7 @@ matplotlib.use("TkAgg")
 def predict(data, model_path, image_size=IMAGE_SIZE, depth_multiplier=1.0):
     input_shape = [None, image_size, image_size, 3]
     inputs = tf.placeholder(tf.float32, shape=input_shape, name='input_images')
-    preds, _, unused = predict_landmarks(inputs, is_training=False, depth_multiplier=depth_multiplier)    
+    preds, _, unused = predict_landmarks(inputs, image_size, is_training=False, depth_multiplier=depth_multiplier)    
     print('predict tensor = ', preds)
     saver = tf.train.Saver()
     # g = tf.get_default_graph()
@@ -59,8 +59,8 @@ def predict_single(img_path, model_path,
     detector = dlib.get_frontal_face_detector()
     box = detector(img, 1)[0]
     oridata = cv2.imread(img_path)
-    if image_size ==80:
-        oridata = cv2.cvtColor(oridata,cv2.COLOR_BGR2RGB)
+    # if image_size ==80:
+    #     oridata = cv2.cvtColor(oridata,cv2.COLOR_BGR2RGB)
     data = crop(oridata, box)
     data = resize(data, (img_size, img_size), anti_aliasing=True, mode='reflect') 
     # view_img(data, None)    
@@ -93,19 +93,25 @@ if __name__ == '__main__':
     # 2960256451_1.jpg
     # '/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/testset/30427236_1.jpg'
     use_tflite = False
-    model = 'pfld-112'
+    model = 'pfld-80'
     if model == 'pfld-64':
         predict_single('/home/tamvm/Downloads/test_face_tamvm_2.jpg', #'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
-            '../../data/checkpoints-pfld-64/pfld-227200' if not use_tflite else '../../data/pfld-64-quant.tflite',
-            # '../../data/pfld-64.tflite',
-            normalize_lmks=False,
+            '../../data/checkpoints-pfld-64-075m/pfld-104400' if not use_tflite else '../../data/pfld-64-quant.tflite',
+            depth_multiplier=0.75,
             image_size=64)
     elif model == 'pfld-112':
         predict_single('/home/tamvm/Downloads/test_face_tamvm_2.jpg', #'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
             '../../data/checkpoints-pfld-112/pfld-1983600' if not use_tflite else '../../data/pfld-112-quant.tflite',
             # '../../data/pfld-64.tflite',
             image_size=112)
+    elif model == 'pfld-80':
+        predict_single('/home/tamvm/Downloads/test_face_tamvm_2.jpg', #'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
+            '../../data/checkpoints-pfld-80-05m/pfld-104000',
+            # '../../data/pfld-64.tflite',
+            depth_multiplier=0.5,
+            image_size=80)
     else:
+        use_tflite = True
         predict_single('/home/tamvm/Downloads/test_face_tamvm_1.jpg', #'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
             '../../data/landmark_80pose.tflite',
             normalize_lmks=True,

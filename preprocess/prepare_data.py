@@ -361,6 +361,8 @@ def stats(path):
 
         total = ds['poses'].shape[0]
         stats = total / np.array(stats, dtype=np.float32)
+        min_val = np.min(stats)
+        stats = stats/min_val
         # print ('scores = ', stats)
 
         for s in range(0, ds['poses'].shape[0]):
