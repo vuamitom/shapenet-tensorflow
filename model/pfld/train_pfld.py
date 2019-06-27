@@ -83,6 +83,7 @@ def train(data_path, save_path,
                             batch_size=BATCH_SIZE,
                             no_epoch=NO_EPOCH,
                             checkpoint=None, 
+                            init_checkpoint=None,
                             quantize=True,
                             quant_delay=50000,
                             step_per_save=300,
@@ -136,7 +137,20 @@ def train(data_path, save_path,
             print('restore from  checkpoint', checkpoint)
             saver.restore(sess, checkpoint)
         else:
-            print('train from scratch')
+            # if init_checkpoint:
+            #     # a = tf.contrib.framework.get_variables_to_restore()
+            #     # print('=====================',a)/
+            #     tf.train.init_from_checkpoint(init_checkpoint, {
+            #         # 'Backbone/expanded_conv/expand/weights/':'Backbone/expanded_conv/expand/weights',
+            #         'aux_conv_4/': 'aux_conv_4',
+            #         # 'aux_conv_1/': 'aux_conv_1',
+            #         # 'aux_conv_2/': 'aux_conv_2',
+            #         # 'aux_conv_3/': 'aux_conv_3',
+            #         # 'aux_conv_4/': 'aux_conv_4',
+            #         # 'aux_fc_1/': 'aux_fc_1',
+            #         # 'aux_fc_2/': 'aux_fc_2'
+            #         })
+            # print('train from scratch')
             sess.run(tf.global_variables_initializer())
 
         for epoch in range(0, no_epoch):
@@ -172,13 +186,13 @@ def train(data_path, save_path,
 
 
 if __name__ == '__main__':
-    train('../../data/labels_ibug_300W_train_64.npz', 
-        '../../data/checkpoints-pfld-64/shapenet',
-        checkpoint=None,
+    train('../../data/labels_ibug_300W_train_80.npz', 
+        '../../data/checkpoints-pfld-80-025m/pfld',
+        init_checkpoint='../../data/checkpoints-pfld-80-05m/pfld-104000',
         batch_size=256,
-        image_size=64,
-        depth_multiplier=0.75,
-        class_weight_path='../../data/labels_ibug_300W_train_64_classes.npz',        
+        image_size=80,
+        depth_multiplier=0.25,
+        class_weight_path='../../data/labels_ibug_300W_train_80_classes.npz',        
         quantize=False, lr=0.0001) 
     # else:
     #     train('../data/labels_ibug_300W_train_112_grey.npz', 
