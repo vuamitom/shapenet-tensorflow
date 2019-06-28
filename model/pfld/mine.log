@@ -1,0 +1,103 @@
+unning benchmark for at least 1 iterations and at least 0.5 seconds
+count=63 first=14945 curr=7008 min=6984 max=14945 avg=7947.24 std=1818
+
+Running benchmark for at least 50 iterations and at least 1 seconds
+count=138 first=7113 curr=7125 min=7103 max=7485 avg=7125.85 std=36
+
+Average inference timings in us: Warmup: 7947.24, Init: 2222, no stats: 7125.85
+============================== Run Order ==============================
+	             [node type]	          [start]	  [first]	 [avg ms]	     [%]	  [cdf%]	  [mem KB]	[times called]	[Name]
+	                 CONV_2D	            0.000	    0.536	    0.538	  7.611%	  7.611%	     0.000	        1	[Backbone/Conv/Relu6]
+	       DEPTHWISE_CONV_2D	            0.539	    0.459	    0.462	  6.527%	 14.138%	     0.000	        1	[Backbone/SeparableConv2d/Relu6]
+	                 CONV_2D	            1.002	    0.489	    0.489	  6.910%	 21.048%	     0.000	        1	[Backbone/expanded_conv/expand/Relu6]
+	       DEPTHWISE_CONV_2D	            1.492	    0.212	    0.214	  3.028%	 24.077%	     0.000	        1	[Backbone/expanded_conv/depthwise/Relu6]
+	                 CONV_2D	            1.707	    0.128	    0.128	  1.804%	 25.880%	     0.000	        1	[Backbone/expanded_conv/project/BatchNorm/FusedBatchNormV3]
+	                 CONV_2D	            1.835	    0.121	    0.122	  1.731%	 27.611%	     0.000	        1	[Backbone/expanded_conv_1/expand/Relu6]
+	       DEPTHWISE_CONV_2D	            1.958	    0.206	    0.207	  2.924%	 30.535%	     0.000	        1	[Backbone/expanded_conv_1/depthwise/Relu6]
+	                 CONV_2D	            2.166	    0.126	    0.127	  1.794%	 32.329%	     0.000	        1	[Backbone/expanded_conv_1/project/BatchNorm/FusedBatchNormV3]
+	                     ADD	            2.294	    0.008	    0.008	  0.109%	 32.439%	     0.000	        1	[Backbone/expanded_conv_1/add]
+	                 CONV_2D	            2.302	    0.121	    0.121	  1.716%	 34.154%	     0.000	        1	[Backbone/expanded_conv_2/expand/Relu6]
+	       DEPTHWISE_CONV_2D	            2.424	    0.207	    0.208	  2.939%	 37.093%	     0.000	        1	[Backbone/expanded_conv_2/depthwise/Relu6]
+	                 CONV_2D	            2.633	    0.127	    0.128	  1.811%	 38.905%	     0.000	        1	[Backbone/expanded_conv_2/project/BatchNorm/FusedBatchNormV3]
+	                     ADD	            2.762	    0.008	    0.007	  0.104%	 39.009%	     0.000	        1	[Backbone/expanded_conv_2/add]
+	                 CONV_2D	            2.770	    0.121	    0.122	  1.726%	 40.735%	     0.000	        1	[Backbone/expanded_conv_3/expand/Relu6]
+	       DEPTHWISE_CONV_2D	            2.893	    0.206	    0.208	  2.935%	 43.670%	     0.000	        1	[Backbone/expanded_conv_3/depthwise/Relu6]
+	                 CONV_2D	            3.101	    0.128	    0.128	  1.807%	 45.477%	     0.000	        1	[Backbone/expanded_conv_3/project/BatchNorm/FusedBatchNormV3]
+	                     ADD	            3.230	    0.007	    0.007	  0.106%	 45.583%	     0.000	        1	[Backbone/expanded_conv_3/add]
+	                 CONV_2D	            3.238	    0.121	    0.122	  1.720%	 47.303%	     0.000	        1	[Backbone/expanded_conv_4/expand/Relu6]
+	       DEPTHWISE_CONV_2D	            3.361	    0.207	    0.208	  2.935%	 50.238%	     0.000	        1	[Backbone/expanded_conv_4/depthwise/Relu6]
+	                 CONV_2D	            3.569	    0.125	    0.126	  1.785%	 52.024%	     0.000	        1	[Backbone/expanded_conv_4/project/BatchNorm/FusedBatchNormV3]
+	                     ADD	            3.696	    0.008	    0.007	  0.105%	 52.129%	     0.000	        1	[Backbone/expanded_conv_4/add]
+	                 CONV_2D	            3.704	    0.140	    0.122	  1.730%	 53.859%	     0.000	        1	[Backbone/expanded_conv_5/expand/Relu6]
+	       DEPTHWISE_CONV_2D	            3.828	    0.055	    0.054	  0.765%	 54.624%	     0.000	        1	[Backbone/expanded_conv_5/depthwise/Relu6]
+	                 CONV_2D	            3.883	    0.052	    0.052	  0.731%	 55.355%	     0.000	        1	[Backbone/expanded_conv_5/project/BatchNorm/FusedBatchNormV3]
+	                 CONV_2D	            3.935	    0.135	    0.136	  1.916%	 57.271%	     0.000	        1	[Backbone/expanded_conv_6/expand/Relu6]
+	              DEQUANTIZE	            4.071	    0.001	    0.001	  0.012%	 57.283%	     0.000	        1	[Backbone/expanded_conv_6/depthwise/depthwise_weights_dequantize]
+	       DEPTHWISE_CONV_2D	            4.073	    0.182	    0.183	  2.584%	 59.867%	     0.000	        1	[Backbone/expanded_conv_6/depthwise/Relu6]
+	                 CONV_2D	            4.257	    0.148	    0.149	  2.105%	 61.971%	     0.000	        1	[Backbone/expanded_conv_6/project/BatchNorm/FusedBatchNormV3]
+	                     ADD	            4.406	    0.004	    0.004	  0.059%	 62.030%	     0.000	        1	[Backbone/expanded_conv_6/add]
+	                 CONV_2D	            4.411	    0.136	    0.137	  1.941%	 63.972%	     0.000	        1	[Backbone/expanded_conv_7/expand/Relu6]
+	              DEQUANTIZE	            4.549	    0.001	    0.001	  0.011%	 63.983%	     0.000	        1	[Backbone/expanded_conv_7/depthwise/depthwise_weights_dequantize]
+	       DEPTHWISE_CONV_2D	            4.551	    0.181	    0.182	  2.575%	 66.558%	     0.000	        1	[Backbone/expanded_conv_7/depthwise/Relu6]
+	                 CONV_2D	            4.734	    0.150	    0.151	  2.129%	 68.687%	     0.000	        1	[Backbone/expanded_conv_7/project/BatchNorm/FusedBatchNormV3]
+	                     ADD	            4.885	    0.004	    0.004	  0.059%	 68.746%	     0.000	        1	[Backbone/expanded_conv_7/add]
+	                 CONV_2D	            4.890	    0.137	    0.137	  1.933%	 70.680%	     0.000	        1	[Backbone/expanded_conv_8/expand/Relu6]
+	              DEQUANTIZE	            5.028	    0.001	    0.001	  0.011%	 70.691%	     0.000	        1	[Backbone/expanded_conv_8/depthwise/depthwise_weights_dequantize]
+	       DEPTHWISE_CONV_2D	            5.029	    0.181	    0.183	  2.583%	 73.274%	     0.000	        1	[Backbone/expanded_conv_8/depthwise/Relu6]
+	                 CONV_2D	            5.213	    0.145	    0.146	  2.059%	 75.333%	     0.000	        1	[Backbone/expanded_conv_8/project/BatchNorm/FusedBatchNormV3]
+	                     ADD	            5.359	    0.004	    0.006	  0.081%	 75.414%	     0.000	        1	[Backbone/expanded_conv_8/add]
+	                 CONV_2D	            5.366	    0.136	    0.136	  1.919%	 77.333%	     0.000	        1	[Backbone/expanded_conv_9/expand/Relu6]
+	              DEQUANTIZE	            5.502	    0.001	    0.001	  0.013%	 77.346%	     0.000	        1	[Backbone/expanded_conv_9/depthwise/depthwise_weights_dequantize]
+	       DEPTHWISE_CONV_2D	            5.504	    0.182	    0.185	  2.619%	 79.966%	     0.000	        1	[Backbone/expanded_conv_9/depthwise/Relu6]
+	                 CONV_2D	            5.690	    0.148	    0.148	  2.093%	 82.059%	     0.000	        1	[Backbone/expanded_conv_9/project/BatchNorm/FusedBatchNormV3]
+	                     ADD	            5.839	    0.004	    0.004	  0.060%	 82.118%	     0.000	        1	[Backbone/expanded_conv_9/add]
+	                 CONV_2D	            5.844	    0.136	    0.138	  1.950%	 84.068%	     0.000	        1	[Backbone/expanded_conv_10/expand/Relu6]
+	              DEQUANTIZE	            5.982	    0.001	    0.001	  0.011%	 84.079%	     0.000	        1	[Backbone/expanded_conv_10/depthwise/depthwise_weights_dequantize]
+	       DEPTHWISE_CONV_2D	            5.984	    0.182	    0.182	  2.576%	 86.655%	     0.000	        1	[Backbone/expanded_conv_10/depthwise/Relu6]
+	                 CONV_2D	            6.167	    0.147	    0.147	  2.083%	 88.738%	     0.000	        1	[Backbone/expanded_conv_10/project/BatchNorm/FusedBatchNormV3]
+	                     ADD	            6.315	    0.004	    0.004	  0.060%	 88.798%	     0.000	        1	[Backbone/expanded_conv_10/add]
+	                 CONV_2D	            6.320	    0.135	    0.137	  1.935%	 90.733%	     0.000	        1	[Backbone/expanded_conv_11/expand/Relu6]
+	              DEQUANTIZE	            6.457	    0.001	    0.001	  0.011%	 90.744%	     0.000	        1	[Backbone/expanded_conv_11/depthwise/depthwise_weights_dequantize]
+	       DEPTHWISE_CONV_2D	            6.459	    0.182	    0.182	  2.579%	 93.323%	     0.000	        1	[Backbone/expanded_conv_11/depthwise/Relu6]
+	                 CONV_2D	            6.642	    0.146	    0.147	  2.074%	 95.397%	     0.000	        1	[Backbone/expanded_conv_11/project/BatchNorm/FusedBatchNormV3]
+	                     ADD	            6.790	    0.005	    0.004	  0.060%	 95.457%	     0.000	        1	[Backbone/expanded_conv_11/add]
+	                 CONV_2D	            6.795	    0.080	    0.081	  1.138%	 96.595%	     0.000	        1	[Backbone/S1/expand/Relu6]
+	       DEPTHWISE_CONV_2D	            6.876	    0.094	    0.094	  1.330%	 97.925%	     0.000	        1	[Backbone/S1/depthwise/Relu6]
+	                 CONV_2D	            6.971	    0.061	    0.061	  0.867%	 98.792%	     0.000	        1	[Backbone/S1/project/BatchNorm/FusedBatchNormV3]
+	                 CONV_2D	            7.033	    0.023	    0.023	  0.320%	 99.112%	     0.000	        1	[Backbone/S2/Relu6]
+	                 RESHAPE	            7.056	    0.002	    0.002	  0.026%	 99.138%	     0.000	        1	[Backbone/S1flatten/flatten/Reshape]
+	                 CONV_2D	            7.059	    0.006	    0.006	  0.082%	 99.220%	     0.000	        1	[Backbone/S3/Relu6]
+	                 RESHAPE	            7.065	    0.001	    0.001	  0.015%	 99.235%	     0.000	        1	[Backbone/S2flatten/flatten/Reshape]
+	                 RESHAPE	            7.067	    0.000	    0.001	  0.012%	 99.247%	     0.000	        1	[Backbone/S3flatten/flatten/Reshape]
+	           CONCATENATION	            7.069	    0.003	    0.003	  0.037%	 99.284%	     0.000	        1	[Backbone/concat]
+	         FULLY_CONNECTED	            7.072	    0.048	    0.049	  0.691%	 99.975%	     0.000	        1	[Backbone/fully_connected/BatchNorm/FusedBatchNormV3_mul_0]
+	                 RESHAPE	            7.122	    0.001	    0.001	  0.013%	 99.988%	     0.000	        1	[Backbone/fully_connected/Relu6_reorder]
+	                 RESHAPE	            7.123	    0.001	    0.001	  0.012%	100.000%	     0.000	        1	[Backbone/fully_connected/Relu6]
+
+============================== Top by Computation Time ==============================
+	             [node type]	          [start]	  [first]	 [avg ms]	     [%]	  [cdf%]	  [mem KB]	[times called]	[Name]
+	                 CONV_2D	            0.000	    0.536	    0.538	  7.611%	  7.611%	     0.000	        1	[Backbone/Conv/Relu6]
+	                 CONV_2D	            1.002	    0.489	    0.489	  6.910%	 14.522%	     0.000	        1	[Backbone/expanded_conv/expand/Relu6]
+	       DEPTHWISE_CONV_2D	            0.539	    0.459	    0.462	  6.527%	 21.048%	     0.000	        1	[Backbone/SeparableConv2d/Relu6]
+	       DEPTHWISE_CONV_2D	            1.492	    0.212	    0.214	  3.028%	 24.077%	     0.000	        1	[Backbone/expanded_conv/depthwise/Relu6]
+	       DEPTHWISE_CONV_2D	            2.424	    0.207	    0.208	  2.939%	 27.016%	     0.000	        1	[Backbone/expanded_conv_2/depthwise/Relu6]
+	       DEPTHWISE_CONV_2D	            3.361	    0.207	    0.208	  2.935%	 29.951%	     0.000	        1	[Backbone/expanded_conv_4/depthwise/Relu6]
+	       DEPTHWISE_CONV_2D	            2.893	    0.206	    0.208	  2.935%	 32.886%	     0.000	        1	[Backbone/expanded_conv_3/depthwise/Relu6]
+	       DEPTHWISE_CONV_2D	            1.958	    0.206	    0.207	  2.924%	 35.810%	     0.000	        1	[Backbone/expanded_conv_1/depthwise/Relu6]
+	       DEPTHWISE_CONV_2D	            5.504	    0.182	    0.185	  2.619%	 38.430%	     0.000	        1	[Backbone/expanded_conv_9/depthwise/Relu6]
+	       DEPTHWISE_CONV_2D	            4.073	    0.182	    0.183	  2.584%	 41.013%	     0.000	        1	[Backbone/expanded_conv_6/depthwise/Relu6]
+
+Number of nodes executed: 66
+============================== Summary by node type ==============================
+	             [Node type]	  [count]	  [avg ms]	    [avg %]	    [cdf %]	  [mem KB]	[times called]
+	                 CONV_2D	       29	     4.187	    59.500%	    59.500%	     0.000	       29
+	       DEPTHWISE_CONV_2D	       14	     2.745	    39.008%	    98.508%	     0.000	       14
+	                     ADD	       10	     0.053	     0.753%	    99.261%	     0.000	       10
+	         FULLY_CONNECTED	        1	     0.048	     0.682%	    99.943%	     0.000	        1
+	                 RESHAPE	        5	     0.002	     0.028%	    99.972%	     0.000	        5
+	           CONCATENATION	        1	     0.002	     0.028%	   100.000%	     0.000	        1
+	              DEQUANTIZE	        6	     0.000	     0.000%	   100.000%	     0.000	        6
+
+Timings (microseconds): count=138 first=7058 curr=7076 min=7048 max=7435 avg=7074.65 std=36
+Memory (bytes): count=0
+66 nodes observed

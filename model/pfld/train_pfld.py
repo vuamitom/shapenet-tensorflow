@@ -1,5 +1,6 @@
 # from shapnet import predict_landmarks as shapenet_predict_landmarks
 from pfld import predict_landmarks as pfld_predict_landmarks, loss_fn as pfld_loss_fn
+from pfld_custom import predict_landmarks as pfld_custom_predict_landmarks
 import numpy as np
 import tensorflow as tf
 import math
@@ -10,10 +11,13 @@ BATCH_SIZE = 256
 NO_EPOCH = 1000
 IMAGE_SIZE = 224
 
-def normalize_landmarks(lmks, image_size):
-    # return (lmks/image_size - 0.5) * 2
-    return lmks/image_size
-
+def normalize_landmarks(lmks, image_size, zero_mean = True):
+    print('normalize_landmarks with zero_mean=',zero_mean)
+    if zero_mean:
+        return (lmks/image_size - 0.5) * 2
+    else:
+        return lmks/image_size
+    # return lmks/image_size
 
 def normalize_data(data):
     return (data - 0.5) * 2
@@ -22,7 +26,7 @@ def normalize_data(data):
 class DataSet:
     def __init__(self, path, batch_size, image_size, 
                             class_weight_path=None,
-                            normalize_lmks=True):
+                            zero_mean=True):
         if class_weight_path is None:
             self.class_weights = None
         else:
@@ -38,9 +42,9 @@ class DataSet:
             self.labels = ds['labels']
             self.poses = ds['poses']
             self.labels = self.labels.reshape((-1, 1, 136)).squeeze()
-            if normalize_lmks:
-                self.poses = self.poses / 90.0 # make it from -1 to 1 
-                self.labels = normalize_landmarks(self.labels, image_size)
+            # if normalize_lmks:
+            self.poses = self.poses / 90.0 # make it from -1 to 1 
+            self.labels = normalize_landmarks(self.labels, image_size, zero_mean)
 
         if self.class_weights is None:
             self.class_weights = np.ones((self.labels.shape[0], 1))
@@ -90,6 +94,7 @@ def train(data_path, save_path,
                             eval_data_path=None,
                             class_weight_path=None,
                             depth_multiplier=1.0,
+                            predict_fn=pfld_predict_landmarks,
                             lr=0.001):
 
     print('train with image_size ', image_size, 
@@ -102,7 +107,7 @@ def train(data_path, save_path,
     poses = tf.placeholder(tf.float32, shape=[None, 3], name='poses')
     class_weights = tf.placeholder(tf.float32, shape=[None, 1], name='class_weights')
 
-    preds, pose_preds, _ = pfld_predict_landmarks(inputs, image_size,
+    preds, pose_preds, _ = predict_fn(inputs, image_size,
                                 depth_multiplier=depth_multiplier,
                                 is_training=True)
     # define loss function
@@ -123,7 +128,7 @@ def train(data_path, save_path,
         print('add dependency on "moving avg" for batch_norm')        
         train_op = optimizer.minimize(loss, global_step) 
     
-    ds = DataSet(data_path, batch_size, image_size, class_weight_path=class_weight_path)
+    ds = DataSet(data_path, batch_size, image_size, class_weight_path=class_weight_path, zero_mean=predict_fn==pfld_custom_predict_landmarks)
     print('Done loading dataset')
 
     eval_ds=None
@@ -187,12 +192,12 @@ def train(data_path, save_path,
 
 if __name__ == '__main__':
     train('../../data/labels_ibug_300W_train_80.npz', 
-        '../../data/checkpoints-pfld-80-025m/pfld',
-        init_checkpoint='../../data/checkpoints-pfld-80-05m/pfld-104000',
-        batch_size=256,
+        '../../data/checkpoints-pfld-custom/pfld',
+        batch_size=20,
         image_size=80,
-        depth_multiplier=0.25,
-        class_weight_path='../../data/labels_ibug_300W_train_80_classes.npz',        
+        depth_multiplier=1.0,
+        class_weight_path='../../data/labels_ibug_300W_train_80_classes.npz',
+        predict_fn=pfld_custom_predict_landmarks,        
         quantize=False, lr=0.0001) 
     # else:
     #     train('../data/labels_ibug_300W_train_112_grey.npz', 

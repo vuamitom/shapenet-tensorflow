@@ -59,6 +59,7 @@ def export(output_path, model_path,
             converter.allow_custom_ops = False
             converter.optimizations = [tf.lite.Optimize.DEFAULT]
             converter.representative_dataset = get_representative_dataset(image_size)
+            # converter.post_training_quantize = True
 
         tflite_model = converter.convert()
         # op = os.path.join(output_dir,  'shapenet.tflite')
@@ -66,7 +67,7 @@ def export(output_path, model_path,
             f.write(tflite_model)
 
 if __name__ == '__main__':
-    output_path = '../../data/pfld-64-075m-quant.tflite'
-    model_path = '../../data/checkpoints-pfld-64-075m/pfld-73200'
-    export(output_path, model_path, image_size=64, quantize_uint8=True, depth_multiplier=0.75)
+    output_path = '../../data/pfld-64-05m.tflite'
+    model_path = '../../data/checkpoints-pfld-64-05m/pfld-311400'
+    export(output_path, model_path, image_size=64, quantize_uint8=False, depth_multiplier=0.5)
 

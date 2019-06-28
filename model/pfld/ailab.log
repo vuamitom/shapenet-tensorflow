@@ -1,0 +1,126 @@
+nitialized session in 2.245ms
+Running benchmark for at least 1 iterations and at least 0.5 seconds
+count=64 first=15063 curr=6862 min=6845 max=15063 avg=7808.31 std=1835
+
+Running benchmark for at least 50 iterations and at least 1 seconds
+count=135 first=7109 curr=6999 min=6992 max=10850 avg=7277.01 std=903
+
+Average inference timings in us: Warmup: 7808.31, Init: 2245, no stats: 7277.01
+============================== Run Order ==============================
+	             [node type]	          [start]	  [first]	 [avg ms]	     [%]	  [cdf%]	  [mem KB]	[times called]	[Name]
+	                 CONV_2D	            0.000	    0.572	    0.558	  7.740%	  7.740%	     0.000	        1	[conv2d_1/BiasAdd]
+	                   PRELU	            0.559	    0.071	    0.073	  1.019%	  8.760%	     0.000	        1	[p_re_lu_1/add]
+	                 CONV_2D	            0.633	    0.533	    0.498	  6.915%	 15.675%	     0.000	        1	[re_lu_1/Relu6]
+	       DEPTHWISE_CONV_2D	            1.132	    0.213	    0.222	  3.077%	 18.752%	     0.000	        1	[re_lu_2/Relu6]
+	                 CONV_2D	            1.355	    0.129	    0.134	  1.854%	 20.606%	     0.000	        1	[batch_normalization_3/FusedBatchNorm]
+	             MAX_POOL_2D	            1.489	    0.085	    0.088	  1.216%	 21.822%	     0.000	        1	[max_pooling2d_1/MaxPool]
+	                     ADD	            1.578	    0.008	    0.008	  0.110%	 21.932%	     0.000	        1	[add_1/add]
+	                 CONV_2D	            1.586	    0.122	    0.128	  1.772%	 23.704%	     0.000	        1	[re_lu_3/Relu6]
+	       DEPTHWISE_CONV_2D	            1.715	    0.207	    0.215	  2.989%	 26.693%	     0.000	        1	[re_lu_4/Relu6]
+	                 CONV_2D	            1.931	    0.128	    0.133	  1.846%	 28.539%	     0.000	        1	[batch_normalization_6/FusedBatchNorm]
+	                     ADD	            2.065	    0.007	    0.008	  0.108%	 28.648%	     0.000	        1	[add_2/add]
+	                 CONV_2D	            2.074	    0.123	    0.128	  1.774%	 30.422%	     0.000	        1	[re_lu_5/Relu6]
+	       DEPTHWISE_CONV_2D	            2.202	    0.207	    0.215	  2.980%	 33.402%	     0.000	        1	[re_lu_6/Relu6]
+	                 CONV_2D	            2.418	    0.127	    0.133	  1.851%	 35.253%	     0.000	        1	[batch_normalization_9/FusedBatchNorm]
+	                     ADD	            2.552	    0.007	    0.008	  0.112%	 35.365%	     0.000	        1	[add_3/add]
+	                 CONV_2D	            2.561	    0.122	    0.128	  1.773%	 37.138%	     0.000	        1	[re_lu_7/Relu6]
+	       DEPTHWISE_CONV_2D	            2.690	    0.207	    0.215	  2.985%	 40.123%	     0.000	        1	[re_lu_8/Relu6]
+	                 CONV_2D	            2.906	    0.144	    0.133	  1.851%	 41.974%	     0.000	        1	[batch_normalization_12/FusedBatchNorm]
+	                     ADD	            3.040	    0.008	    0.008	  0.114%	 42.088%	     0.000	        1	[add_4/add]
+	                 CONV_2D	            3.049	    0.121	    0.126	  1.747%	 43.834%	     0.000	        1	[re_lu_9/Relu6]
+	       DEPTHWISE_CONV_2D	            3.176	    0.208	    0.215	  2.990%	 46.824%	     0.000	        1	[re_lu_10/Relu6]
+	                 CONV_2D	            3.392	    0.128	    0.133	  1.852%	 48.676%	     0.000	        1	[batch_normalization_15/FusedBatchNorm]
+	                     ADD	            3.526	    0.007	    0.008	  0.107%	 48.783%	     0.000	        1	[add_5/add]
+	                 CONV_2D	            3.535	    0.121	    0.126	  1.750%	 50.533%	     0.000	        1	[re_lu_11/Relu6]
+	       DEPTHWISE_CONV_2D	            3.662	    0.054	    0.060	  0.828%	 51.361%	     0.000	        1	[re_lu_12/Relu6]
+	                 CONV_2D	            3.722	    0.057	    0.059	  0.825%	 52.187%	     0.000	        1	[batch_normalization_18/FusedBatchNorm]
+	                 CONV_2D	            3.782	    0.199	    0.207	  2.870%	 55.056%	     0.000	        1	[re_lu_13/Relu6]
+	       DEPTHWISE_CONV_2D	            3.990	    0.182	    0.189	  2.628%	 57.685%	     0.000	        1	[re_lu_14/Relu6]
+	                 CONV_2D	            4.180	    0.195	    0.203	  2.821%	 60.506%	     0.000	        1	[batch_normalization_21/FusedBatchNorm]
+	                     ADD	            4.384	    0.004	    0.004	  0.059%	 60.565%	     0.000	        1	[add_6/add]
+	                 CONV_2D	            4.390	    0.199	    0.207	  2.872%	 63.438%	     0.000	        1	[re_lu_15/Relu6]
+	       DEPTHWISE_CONV_2D	            4.597	    0.182	    0.190	  2.634%	 66.071%	     0.000	        1	[re_lu_16/Relu6]
+	                 CONV_2D	            4.788	    0.194	    0.203	  2.823%	 68.894%	     0.000	        1	[batch_normalization_24/FusedBatchNorm]
+	                     ADD	            4.992	    0.004	    0.004	  0.061%	 68.955%	     0.000	        1	[add_7/add]
+	                 CONV_2D	            4.997	    0.198	    0.207	  2.879%	 71.834%	     0.000	        1	[re_lu_17/Relu6]
+	       DEPTHWISE_CONV_2D	            5.206	    0.183	    0.190	  2.643%	 74.477%	     0.000	        1	[re_lu_18/Relu6]
+	                 CONV_2D	            5.397	    0.194	    0.203	  2.822%	 77.299%	     0.000	        1	[batch_normalization_27/FusedBatchNorm]
+	                     ADD	            5.601	    0.004	    0.004	  0.061%	 77.360%	     0.000	        1	[add_8/add]
+	                 CONV_2D	            5.606	    0.199	    0.208	  2.882%	 80.242%	     0.000	        1	[re_lu_19/Relu6]
+	       DEPTHWISE_CONV_2D	            5.815	    0.182	    0.191	  2.644%	 82.886%	     0.000	        1	[re_lu_20/Relu6]
+	                 CONV_2D	            6.006	    0.195	    0.204	  2.833%	 85.719%	     0.000	        1	[batch_normalization_30/FusedBatchNorm]
+	                     ADD	            6.211	    0.004	    0.004	  0.060%	 85.779%	     0.000	        1	[add_9/add]
+	                 CONV_2D	            6.216	    0.199	    0.208	  2.882%	 88.661%	     0.000	        1	[re_lu_21/Relu6]
+	       DEPTHWISE_CONV_2D	            6.425	    0.182	    0.190	  2.643%	 91.305%	     0.000	        1	[re_lu_22/Relu6]
+	                 CONV_2D	            6.616	    0.195	    0.204	  2.824%	 94.129%	     0.000	        1	[batch_normalization_33/FusedBatchNorm]
+	                     ADD	            6.821	    0.004	    0.004	  0.061%	 94.190%	     0.000	        1	[add_10/add]
+	                 CONV_2D	            6.826	    0.105	    0.109	  1.511%	 95.701%	     0.000	        1	[re_lu_23/Relu6]
+	       DEPTHWISE_CONV_2D	            6.935	    0.094	    0.098	  1.361%	 97.063%	     0.000	        1	[re_lu_24/Relu6]
+	                 CONV_2D	            7.034	    0.027	    0.028	  0.391%	 97.454%	     0.000	        1	[batch_normalization_36/FusedBatchNorm]
+	                 CONV_2D	            7.063	    0.009	    0.009	  0.122%	 97.576%	     0.000	        1	[conv2d_26/BiasAdd]
+	                   PRELU	            7.073	    0.002	    0.002	  0.025%	 97.601%	     0.000	        1	[p_re_lu_2/add]
+	                 CONV_2D	            7.076	    0.004	    0.004	  0.051%	 97.652%	     0.000	        1	[conv2d_27/BiasAdd]
+	                   PRELU	            7.080	    0.001	    0.001	  0.014%	 97.667%	     0.000	        1	[p_re_lu_3/add]
+	                 RESHAPE	            7.082	    0.001	    0.001	  0.015%	 97.682%	     0.000	        1	[flatten_1/Reshape]
+	                 RESHAPE	            7.084	    0.001	    0.001	  0.013%	 97.695%	     0.000	        1	[flatten_2/Reshape]
+	                 RESHAPE	            7.085	    0.001	    0.001	  0.012%	 97.706%	     0.000	        1	[flatten_3/Reshape]
+	           CONCATENATION	            7.087	    0.003	    0.002	  0.028%	 97.734%	     0.000	        1	[concatenate_1/concat]
+	         FULLY_CONNECTED	            7.090	    0.032	    0.033	  0.455%	 98.189%	     0.000	        1	[dense_1/BiasAdd]
+	                    TANH	            7.123	    0.002	    0.002	  0.021%	 98.210%	     0.000	        1	[dense_1/Tanh]
+	         FULLY_CONNECTED	            7.126	    0.029	    0.011	  0.146%	 98.356%	     0.000	        1	[dense_2/BiasAdd]
+	                    TANH	            7.137	    0.001	    0.001	  0.014%	 98.371%	     0.000	        1	[dense_2/Tanh]
+	         FULLY_CONNECTED	            7.139	    0.010	    0.010	  0.141%	 98.512%	     0.000	        1	[dense_3/BiasAdd]
+	                    TANH	            7.150	    0.001	    0.001	  0.014%	 98.526%	     0.000	        1	[dense_3/Tanh]
+	         FULLY_CONNECTED	            7.152	    0.017	    0.017	  0.242%	 98.768%	     0.000	        1	[dense_4/BiasAdd]
+	                    TANH	            7.170	    0.001	    0.001	  0.017%	 98.785%	     0.000	        1	[dense_4/Tanh]
+	         FULLY_CONNECTED	            7.172	    0.011	    0.013	  0.174%	 98.959%	     0.000	        1	[dense_5/BiasAdd]
+	                    TANH	            7.185	    0.001	    0.001	  0.015%	 98.974%	     0.000	        1	[dense_5/Tanh]
+	         FULLY_CONNECTED	            7.187	    0.011	    0.012	  0.167%	 99.141%	     0.000	        1	[dense_6/BiasAdd]
+	                    TANH	            7.200	    0.001	    0.001	  0.015%	 99.156%	     0.000	        1	[dense_6/Tanh]
+	         FULLY_CONNECTED	            7.202	    0.036	    0.038	  0.521%	 99.677%	     0.000	        1	[dense_7/BiasAdd]
+	                    TANH	            7.240	    0.001	    0.002	  0.022%	 99.698%	     0.000	        1	[dense_7/Tanh]
+	         FULLY_CONNECTED	            7.242	    0.003	    0.003	  0.041%	 99.739%	     0.000	        1	[chin_shape/BiasAdd]
+	                    TANH	            7.246	    0.001	    0.001	  0.016%	 99.755%	     0.000	        1	[chin_shape/Tanh]
+	         FULLY_CONNECTED	            7.248	    0.001	    0.001	  0.017%	 99.773%	     0.000	        1	[left_eyes_brown_shape/BiasAdd]
+	                    TANH	            7.250	    0.001	    0.001	  0.014%	 99.786%	     0.000	        1	[left_eyes_brown_shape/Tanh]
+	         FULLY_CONNECTED	            7.252	    0.001	    0.001	  0.017%	 99.803%	     0.000	        1	[right_eyes_brown_shape/BiasAdd]
+	                    TANH	            7.254	    0.001	    0.001	  0.014%	 99.817%	     0.000	        1	[right_eyes_brown_shape/Tanh]
+	         FULLY_CONNECTED	            7.256	    0.001	    0.002	  0.021%	 99.838%	     0.000	        1	[noise_shape/BiasAdd]
+	                    TANH	            7.258	    0.001	    0.001	  0.014%	 99.852%	     0.000	        1	[noise_shape/Tanh]
+	         FULLY_CONNECTED	            7.260	    0.001	    0.001	  0.017%	 99.869%	     0.000	        1	[left_eyes_shape/BiasAdd]
+	                    TANH	            7.262	    0.001	    0.001	  0.013%	 99.882%	     0.000	        1	[left_eyes_shape/Tanh]
+	         FULLY_CONNECTED	            7.264	    0.002	    0.001	  0.017%	 99.899%	     0.000	        1	[right_eyes_shape/BiasAdd]
+	                    TANH	            7.266	    0.000	    0.001	  0.013%	 99.912%	     0.000	        1	[right_eyes_shape/Tanh]
+	         FULLY_CONNECTED	            7.267	    0.004	    0.003	  0.048%	 99.960%	     0.000	        1	[mount_shape/BiasAdd]
+	                    TANH	            7.272	    0.001	    0.001	  0.017%	 99.977%	     0.000	        1	[mount_shape/Tanh]
+	           CONCATENATION	            7.274	    0.002	    0.002	  0.023%	100.000%	     0.000	        1	[face_shape/concat]
+
+============================== Top by Computation Time ==============================
+	             [node type]	          [start]	  [first]	 [avg ms]	     [%]	  [cdf%]	  [mem KB]	[times called]	[Name]
+	                 CONV_2D	            0.000	    0.572	    0.558	  7.740%	  7.740%	     0.000	        1	[conv2d_1/BiasAdd]
+	                 CONV_2D	            0.633	    0.533	    0.498	  6.915%	 14.656%	     0.000	        1	[re_lu_1/Relu6]
+	       DEPTHWISE_CONV_2D	            1.132	    0.213	    0.222	  3.077%	 17.732%	     0.000	        1	[re_lu_2/Relu6]
+	       DEPTHWISE_CONV_2D	            3.176	    0.208	    0.215	  2.990%	 20.722%	     0.000	        1	[re_lu_10/Relu6]
+	       DEPTHWISE_CONV_2D	            1.715	    0.207	    0.215	  2.989%	 23.711%	     0.000	        1	[re_lu_4/Relu6]
+	       DEPTHWISE_CONV_2D	            2.690	    0.207	    0.215	  2.985%	 26.696%	     0.000	        1	[re_lu_8/Relu6]
+	       DEPTHWISE_CONV_2D	            2.202	    0.207	    0.215	  2.980%	 29.676%	     0.000	        1	[re_lu_6/Relu6]
+	                 CONV_2D	            5.606	    0.199	    0.208	  2.882%	 32.558%	     0.000	        1	[re_lu_19/Relu6]
+	                 CONV_2D	            6.216	    0.199	    0.208	  2.882%	 35.440%	     0.000	        1	[re_lu_21/Relu6]
+	                 CONV_2D	            4.997	    0.198	    0.207	  2.879%	 38.319%	     0.000	        1	[re_lu_17/Relu6]
+
+Number of nodes executed: 86
+============================== Summary by node type ==============================
+	             [Node type]	  [count]	  [avg ms]	    [avg %]	    [cdf %]	  [mem KB]	[times called]
+	                 CONV_2D	       27	     4.608	    64.304%	    64.304%	     0.000	       27
+	       DEPTHWISE_CONV_2D	       12	     2.185	    30.491%	    94.795%	     0.000	       12
+	         FULLY_CONNECTED	       14	     0.140	     1.954%	    96.749%	     0.000	       14
+	             MAX_POOL_2D	        1	     0.087	     1.214%	    97.963%	     0.000	        1
+	                   PRELU	        3	     0.075	     1.047%	    99.009%	     0.000	        3
+	                     ADD	       10	     0.057	     0.795%	    99.805%	     0.000	       10
+	                    TANH	       14	     0.010	     0.140%	    99.944%	     0.000	       14
+	           CONCATENATION	        2	     0.003	     0.042%	    99.986%	     0.000	        2
+	                 RESHAPE	        3	     0.001	     0.014%	   100.000%	     0.000	        3
+
+Timings (microseconds): count=135 first=7037 curr=6930 min=6921 max=10756 avg=7206.28 std=895
+Memory (bytes): count=0
+86 nodes observed
