@@ -3,7 +3,8 @@ sys.path.append('../../preprocess')
 
 import numpy as np
 import tensorflow as tf
-from pfld import predict_landmarks
+from pfld import predict_landmarks as pfld_predict_landmarks
+from pfld_custom import predict_landmarks as pfld_custom_predict_landmarks
 from skimage.color import rgb2gray
 import cv2
 import dlib
@@ -15,10 +16,10 @@ from train_pfld import normalize_data
 matplotlib.use("TkAgg")
 # IMAGE_SIZE = 224
 
-def predict(data, model_path, image_size=IMAGE_SIZE, depth_multiplier=1.0):
+def predict(data, model_path, predict_fn, image_size=IMAGE_SIZE, depth_multiplier=1.0, **kwargs):
     input_shape = [None, image_size, image_size, 3]
     inputs = tf.placeholder(tf.float32, shape=input_shape, name='input_images')
-    preds, _, unused = predict_landmarks(inputs, image_size, is_training=False, depth_multiplier=depth_multiplier)    
+    preds, _, _ = predict_fn(inputs, image_size, is_training=False, depth_multiplier=depth_multiplier, **kwargs)    
     print('predict tensor = ', preds)
     saver = tf.train.Saver()
     # g = tf.get_default_graph()
@@ -26,11 +27,8 @@ def predict(data, model_path, image_size=IMAGE_SIZE, depth_multiplier=1.0):
     with tf.Session() as sess:         
         saver.restore(sess, model_path)   
         # sess.run(tf.global_variables_initializer())
-        results, ur_0, ur_1, ur_2= sess.run([preds, unused[0], unused[1], unused[2]], feed_dict={inputs: data})
+        results = sess.run(preds, feed_dict={inputs: data})
         print('landmarks = ', results)
-        print('S1 ', ur_0)
-        print('S2 ', ur_1)
-        print('S3 ', ur_2)
         # print('S1 > ')
         return results
 
@@ -52,7 +50,9 @@ def crop(img, box):
 def predict_single(img_path, model_path, 
                 image_size=IMAGE_SIZE, 
                 depth_multiplier=1.0,
-                normalize_lmks=True):
+                predict_fn=pfld_predict_landmarks,
+                zero_mean=True,
+                **kwargs):
     # get face bound
     img_size = image_size
     img = dlib.load_rgb_image(img_path)
@@ -76,14 +76,15 @@ def predict_single(img_path, model_path,
         
         lmks = predict_tflite(np.reshape(normalized_data, (1, *normalized_data.shape)).astype(np.float32), model_path)[0]
     else:
-        lmks = predict(np.reshape(normalized_data, (1, *normalized_data.shape)), model_path,                    
+        lmks = predict(np.reshape(normalized_data, (1, *normalized_data.shape)), model_path, predict_fn,                   
                         image_size=image_size,
-                        depth_multiplier=depth_multiplier)[0]
+                        depth_multiplier=depth_multiplier,
+                        **kwargs)[0]
     # print('landmark = ', lmks)
-    if normalize_lmks:
+    if zero_mean:
         for i in range(0, 68):
-            lmks[i*2] = (lmks[i*2])* image_size# (lmks[i*2]/2+0.5)*image_size
-            lmks[i*2+1] = (lmks[i*2+1]) * image_size# (lmks[i*2+1]/2 + 0.5)*image_size
+            lmks[i*2] = (lmks[i*2]/2+0.5)* image_size# (lmks[i*2]/2+0.5)*image_size
+            lmks[i*2+1] = (lmks[i*2+1]/2 + 0.5) * image_size# (lmks[i*2+1]/2 + 0.5)*image_size
         # print('landmarks after denorm', lmks)
     lmks = lmks.reshape((68, 2))
 
@@ -93,7 +94,7 @@ if __name__ == '__main__':
     # 2960256451_1.jpg
     # '/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/testset/30427236_1.jpg'
     use_tflite = False
-    model = 'pfld-64'
+    model = 'pfld-custom-80-025m-aux7'
     if model == 'pfld-64':
         predict_single('/home/tamvm/Downloads/test_face_tamvm_2.jpg', #'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
             '../../data/checkpoints-pfld-64-05m/pfld-311400' if not use_tflite else '../../data/pfld-64-quant.tflite',
@@ -110,6 +111,31 @@ if __name__ == '__main__':
             # '../../data/pfld-64.tflite',
             depth_multiplier=0.25,
             image_size=80)
+    elif model == 'pfld-custom-80':
+        predict_single('/home/tamvm/Downloads/test_face_tamvm_2.jpg', #'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
+            '../../data/checkpoints-pfld-custom/pfld-183000',
+            predict_fn=pfld_custom_predict_landmarks,
+            # '../../data/pfld-64.tflite',
+            depth_multiplier=1,
+            zero_mean=True,
+            image_size=80)
+    elif model == 'pfld-custom-80-025m':
+        predict_single('/home/tamvm/Downloads/test_face_tamvm_2.jpg', #'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
+            '../../data/checkpoints-pfld-custom-80-025m/pfld-314100',
+            predict_fn=pfld_custom_predict_landmarks,
+            # '../../data/pfld-64.tflite',
+            depth_multiplier=0.25,
+            zero_mean=True,
+            image_size=80)
+    elif model == 'pfld-custom-80-025m-aux7':
+        predict_single('/home/tamvm/Downloads/test_face_tamvm_2.jpg', #'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
+            '../../data/checkpoints-pfld-custom-80-025m-aux7/pfld-292500',
+            predict_fn=pfld_custom_predict_landmarks,
+            # '../../data/pfld-64.tflite',
+            depth_multiplier=0.25,
+            zero_mean=True,
+            image_size=80,
+            aux_start_layer='layer_7')
     else:
         use_tflite = True
         predict_single('/home/tamvm/Downloads/test_face_tamvm_1.jpg', #'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 

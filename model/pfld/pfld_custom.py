@@ -199,7 +199,7 @@ def backbone_net(inputs, image_size, is_training=True, depth_multiplier=0.5):
                     return image_features, landmarks, None
 
 
-def predict_landmarks(inputs, image_size, is_training=True, depth_multiplier=0.5, *args, **kwargs):
+def predict_landmarks(inputs, image_size, is_training=True, depth_multiplier=0.5, aux_start_layer='layer_5', *args, **kwargs):
     mobilenet_output, landmarks, unused = backbone_net(inputs, image_size, is_training=is_training, depth_multiplier=depth_multiplier)
     # print('output = ', output)
     # print('layer 0', mobilenet_output['layer_0'])
@@ -207,7 +207,8 @@ def predict_landmarks(inputs, image_size, is_training=True, depth_multiplier=0.5
     # print('layer 15', mobilenet_output['layer_15'])
     # print('layer 15/output ', mobilenet_output['layer_15/output'])
     if is_training:
-        pose, _ = auxiliary_net(mobilenet_output['layer_5'], image_size)
+        print('auxiliary_net start layer = ', aux_start_layer)
+        pose, _ = auxiliary_net(mobilenet_output[aux_start_layer], image_size)
     else:
         pose = None
     return landmarks, pose, unused

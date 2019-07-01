@@ -95,7 +95,8 @@ def train(data_path, save_path,
                             class_weight_path=None,
                             depth_multiplier=1.0,
                             predict_fn=pfld_predict_landmarks,
-                            lr=0.001):
+                            lr=0.001,
+                            **kwargs):
 
     print('train with image_size ', image_size, 
         ' quantize=', quantize, 
@@ -109,7 +110,8 @@ def train(data_path, save_path,
 
     preds, pose_preds, _ = predict_fn(inputs, image_size,
                                 depth_multiplier=depth_multiplier,
-                                is_training=True)
+                                is_training=True,
+                                **kwargs)
     # define loss function
     loss = pfld_loss_fn(preds, pose_preds, labels, poses, class_weights)
     l1_loss = tf.losses.absolute_difference(labels*image_size, preds*image_size)
@@ -197,8 +199,10 @@ if __name__ == '__main__':
         image_size=80,
         depth_multiplier=1.0,
         class_weight_path='../../data/labels_ibug_300W_train_80_classes.npz',
-        predict_fn=pfld_custom_predict_landmarks,        
-        quantize=False, lr=0.0001) 
+        predict_fn=pfld_custom_predict_landmarks,
+        aux_start_layer='layer_7',       
+        quantize=False, 
+        lr=0.0001) 
     # else:
     #     train('../data/labels_ibug_300W_train_112_grey.npz', 
     #         '../data/unrot_train_pca.npz',

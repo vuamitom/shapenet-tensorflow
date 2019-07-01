@@ -1,4 +1,5 @@
-from pfld import predict_landmarks
+from pfld import predict_landmarks as pfld_predict_landmarks
+from pfld_custom import predict_landmarks as pfld_custom_predict_landmarks
 import tensorflow as tf
 import os
 import numpy as np 
@@ -24,11 +25,12 @@ def export(output_path, model_path,
             image_size=112,
             quantize_uint8=False,
             depth_multiplier=1.0,
+            predict_fn=pfld_predict_landmarks,
             in_channels=1):
 
     input_shape = [1, image_size, image_size, 3]
     inputs = tf.placeholder(tf.float32, shape=input_shape, name='input_images')
-    preds,_,_ = predict_landmarks(inputs, image_size,
+    preds,_,_ = predict_fn(inputs, image_size,
         is_training=False,
         depth_multiplier=depth_multiplier)
     # print('nodes name ', [n.name for n in tf.get_default_graph().as_graph_def().node])
@@ -67,7 +69,11 @@ def export(output_path, model_path,
             f.write(tflite_model)
 
 if __name__ == '__main__':
-    output_path = '../../data/pfld-64-05m.tflite'
-    model_path = '../../data/checkpoints-pfld-64-05m/pfld-311400'
-    export(output_path, model_path, image_size=64, quantize_uint8=False, depth_multiplier=0.5)
+    output_path = '../../data/pfld-custom-80-025m.tflite'
+    model_path = '../../data/checkpoints-pfld-custom-80-025m/pfld-314100'
+    export(output_path, model_path, 
+        image_size=80,
+        predict_fn=pfld_custom_predict_landmarks, 
+        quantize_uint8=True, 
+        depth_multiplier=0.25)
 
