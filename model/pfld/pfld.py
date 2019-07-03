@@ -21,6 +21,16 @@ def loss_fn(preds, pred_pose, labels, pose_labels, class_weights):
     l2 = tf.reduce_sum((preds - labels)**2, axis=-1)
     return tf.reduce_mean( tf.multiply(class_weights, tf.multiply(beta, l2)) )/2
 
+def loss_fn_eyes_mouth_focus(preds, pred_pose, labels, pose_labels, class_weights):
+    print('preds = ', preds)
+    print('pred pose = ', pred_pose)
+    half_pi = tf.constant(math.pi/2)
+    beta = tf.reduce_sum(1 - tf.cos((pred_pose - pose_labels) * half_pi), axis=-1)
+    diff = (preds - labels)
+    
+    l2 = tf.reduce_sum(diff **2, axis=-1)
+    return tf.reduce_mean( tf.multiply(class_weights, tf.multiply(beta, l2)) )/2
+
 
 def dummy_depth_multiplier(output_params,
                      multiplier,

@@ -8,12 +8,13 @@ from matplotlib import pyplot as plt
 import random
 from pose_estimation import face_orientation, preview
 from skimage import img_as_ubyte
+from detector import get_face_detector
 # import matplotlib.patches as patches
 IMAGE_SIZE = 224
 CROP_OFFSET = 0.05
 
 
-def rotate(img, landmark, angle):
+def rotate_fn(img, landmark, angle):
     h, w = img.shape[0], img.shape[1]
     center = (w/2, h/2)
     rot_mat = cv2.getRotationMatrix2D(center, angle, 1)
@@ -26,7 +27,7 @@ def safe_rotate(img, landmark, angle):
     """
     fallback to a rotation that is not out of bound
     """
-    rimg, rlmk = rotate(img, landmark, angle)
+    rimg, rlmk = rotate_fn(img, landmark, angle)
     h, w = rimg.shape[0], rimg.shape[1]
     for lm in rlmk:
         x, y = lm 
@@ -84,6 +85,12 @@ def load_img(img_path):
     img = cv2.imread(img_path)
     # crop
     return img
+
+def crop_with_boundingbox(img, lmks, bbox):
+    l, t, r, b = bbox 
+    img = img[t:b, l:r]
+    lmks = lmks - np.array([l, t])
+    return img, lmks
 
 def crop(img, lmks, crop_offset=CROP_OFFSET, is_gray=True):
     
@@ -147,8 +154,18 @@ def estimate_pose(frame, landmarks):
     return np.array(list(rotate_degree))
     # return rotate_degree
 
+def crop_and_resize(img, lmks, img_size, bbox=None):
+        if bbox is None:
+            img, lmks = crop(img, lmks, is_gray=to_grayscale)
+        else:
+            img, lmks = crop_with_boundingbox(img, lmks, bbox)
+        # view_img(img, lmks)
+        lmks = resize_lmks(img, lmks, img_size)        
+        img   = resize(img, (img_size, img_size), anti_aliasing=True, mode='reflect') 
+        return img, lmks
+
 # def ensure_lmk_in_bound(lmks, w, h):
-def read_data(lmk_xml, img_size, to_grayscale=True, rotate=True, include_pose=True):    
+def read_data(lmk_xml, img_size, to_grayscale=True, rotate=True, include_pose=True, use_gt_box=False):    
     base_dir = os.path.dirname(lmk_xml)
     points, img_sizes, imgs = load_landmarks(lmk_xml)    
     # img_size = IMAGE_SIZE
@@ -166,13 +183,7 @@ def read_data(lmk_xml, img_size, to_grayscale=True, rotate=True, include_pose=Tr
     if include_pose:
         pose_labels = np.ndarray((len(imgs)* no_augmented, 3), dtype=np.float32)
     meta = np.ndarray((len(imgs) * no_augmented, ), dtype=np.int32)
-    
-    def crop_and_resize(img, lmks, img_size):
-        img, lmks = crop(img, lmks, is_gray=to_grayscale)
-        # view_img(img, lmks)
-        lmks = resize_lmks(img, lmks, img_size)        
-        img   = resize(img, (img_size, img_size), anti_aliasing=True, mode='reflect') 
-        return img, lmks
+    face_detector = get_face_detector()
 
     for i in range(0, len(imgs)):        
         # if not i == 1: continue
@@ -185,25 +196,27 @@ def read_data(lmk_xml, img_size, to_grayscale=True, rotate=True, include_pose=Tr
 
         original_lmks = points[i]        
         # view_img(original_im, original_lmks)
-        img, lmks = crop_and_resize(original_im, original_lmks, img_size)  
+        bbox = face_detector.detect_cv(original_im)
+        img, lmks = crop_and_resize(original_im, original_lmks, img_size, bbox)  
         # print(lmks) 
         # break 
         poses = None if not include_pose else estimate_pose(img, lmks)
-        # view_img(img, lmks)     
+        view_img(img, lmks)     
         fl_img, fl_lmks = flip(img, lmks)        
         fl_poses = None if not include_pose else estimate_pose(fl_img, fl_lmks)
-        # view_img(fl_img, fl_lmks)
+        view_img(fl_img, fl_lmks)
 
         # print ('im size = ', im.shape, ' original ', original_im.shape)
         # make sure that face is at the center
         # original_im, original_lmks = crop(original_im, original_lmks, 0.4)
         gen_imgs = [(img, lmks, poses), (fl_img, fl_lmks, fl_poses)]
         if rotate:
-            rot_img, rot_lmk = safe_rotate(original_im, original_lmks, random.choice([5, 10, 15, 20, 30, -5, -10, -15, -20, -30]))                    
-            rot_img, rot_lmk = crop_and_resize(rot_img, rot_lmk, img_size)
+            rot_img, rot_lmk = rotate_fn(original_im, original_lmks, random.choice([5, 10, 15, 20, 30, -5, -10, -15, -20, -30]))        
+            bbox = face_detector.detect_cv(rot_img)         
+            rot_img, rot_lmk = crop_and_resize(rot_img, rot_lmk, img_size, bbox)
             rot_poses = None if not include_pose else estimate_pose(rot_img, rot_lmk)
             gen_imgs.append((rot_img, rot_lmk, rot_poses))
-        # view_img(rot_img, rot_lmk)
+            view_img(rot_img, rot_lmk)
         # rot_img_ccw, rot_lmk_ccw = safe_rotate(original_im, original_lmks, random.choice([-5, -10, -15, -20]))        
         # view_img(rot_img, rot_lmk, is_gray=to_grayscale)
         # rot_img_ccw, rot_lmk_ccw = crop_and_resize(rot_img_ccw, rot_lmk_ccw, img_size)
@@ -215,7 +228,7 @@ def read_data(lmk_xml, img_size, to_grayscale=True, rotate=True, include_pose=Tr
                 # print(gen_img[2])
                 pose_labels[i* no_augmented + idx] = gen_img[2]
         meta[i*no_augmented:(i*no_augmented + len(gen_imgs))] = i 
-        # return None
+        return None
         if i % 300 == 0:
             print('processed ', (i+1), '/', len(imgs), ' images')
     return data, labels, pose_labels, meta
@@ -252,6 +265,12 @@ def preprocess(lmk_xml, output_dir, image_size=IMAGE_SIZE, to_grayscale=True, in
         f.write('\n'.join([str(_) for _ in list(meta)]))
 
 
+def get_ori_images_by_indices(indices):
+    _, _, imgs = load_landmarks('/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/labels_ibug_300W_train.xml')
+    for idx in indices:
+        print(imgs[idx])
+
+
 def verify_data(path):
     # with open('../data/labels_ibug_300W_train_80.npz.meta', 'r') as f:
     #     lines = f.readlines()
@@ -263,43 +282,36 @@ def verify_data(path):
     img, lmks, poses = None, None, None
     total_diff = 0
     total = 0
+    samples = []
+    sample_indices = []
     with np.load(path) as ds:
-        total = ds['labels'].shape[0]
-        print('total = ', total)
-        for i in range (0, ds['labels'].shape[0]):
-            # if not i in [175]:
-            #     continue
-            img = ds['data'][i]
-            lmks = ds['labels'][i]
-            poses = ds['poses'][i]
-            imgpts, modelpts, rotate_degree, nose = face_orientation(img.shape, lmks)
-            diff = np.sum(np.abs(np.array(rotate_degree) - np.array(poses)))
-            if diff > 20 or True:
-                print('diff = ', diff, 'i = ', i, ' old = ', poses, 'new = ', rotate_degree)
-                # imgpts, modelpts, rotate_degree, nose = face_orientation((112, 112, 3), lmks)
-                # print('a1', rotate_degree)
-                # imgpts, modelpts, rotate_degree, nose = face_orientation((112, 112, 3), lmks)
-                # print('a2', rotate_degree)
-                # imgpts, modelpts, rotate_degree, nose = face_orientation((112, 112, 3), lmks)
-                # print('a3', rotate_degree)
-                # imgpts, modelpts, rotate_degree, nose = face_orientation(frame, lmks)
-    # print('diff = ', np.array(rotate_degree) - np.array(poses))
-                # img = ds['data'][i]
-                # frame = img_as_ubyte(img)  
-                # preview(frame, lmks, poses, nose, imgpts, modelpts)
-                # print('----------------------__>>>>>')
-                # preview(frame, lmks, rotate_degree, nose, imgpts, modelpts)
-                total_diff += 1
-                # break 
-                
-            if i % 100 ==0:
-                print((i+1), 'done', 'diff = ', total_diff)
+        data = ds['data']
+        for s in range(0, data.shape[0]):
+            poses = ds['poses'][s]                        
+            roll, pitch, yaw = poses
+            
+            c = pose_to_class(roll, pitch, yaw)
+            if c == 1 or c == 2:
+                # print('idx = ', s)
+                samples.append(data[s])
+                sample_indices.append(s)
+                if len(samples) > 25:
+                    break
+    rows, columns = 5, 5
+    # files = []
+    ori_idx = []
+    with open(path + '.meta', 'r') as f:
+        lines = f.readlines()
+        for idx in sample_indices:
+            # print ('exam ', lines[idx])
+            ori_idx.append(int(lines[idx]))
+    get_ori_images_by_indices(ori_idx)
 
-    print('total diff = ', total_diff, '/', total)
-    # frame = img_as_ubyte(img)    
-    # imgpts, modelpts, rotate_degree, nose = face_orientation(frame, lmks)
-    # print('diff = ', np.array(rotate_degree) - np.array(poses))
-    # preview(frame, lmks, rotate_degree, nose, imgpts, modelpts
+    fig=plt.figure(figsize=(columns, rows))
+    for i in range(1, rows * columns + 1):
+        fig.add_subplot(rows, columns, i)
+        plt.imshow(samples[i - 1])
+    plt.show()
 
 def pose_to_class(roll, pitch, yaw):
     # r, p, y = 0, 0, 0
@@ -364,13 +376,19 @@ def stats(path):
         min_val = np.min(stats)
         stats = stats/min_val
         # print ('scores = ', stats)
-
+        print ('stats = ', stats)
+        # increase 
+        stats[1] = stats[1] * 4
+        stats[2] = stats[2] * 4
+        print ('after increase scores for left and right turn')
+        print('stats = ', stats)
         for s in range(0, ds['poses'].shape[0]):
+            # if not weights[s][0] == 0: print('AAA')
             weights[s][0] = stats[int(weights[s][0])]
             # if c == 3:
             #     print('---->>>>', s)
     print('weights = ', weights)
-    print ('stats = ', stats)
+    
     save_f = os.path.basename(path) 
     save_f = save_f.replace('.npz', '') + '_classes.npz'
     np.savez_compressed(os.path.join(os.path.dirname(path), save_f), 
@@ -391,13 +409,14 @@ def stats(path):
 
 if __name__ == '__main__':
     # preprocess train data
-    to_verify = True
+    to_verify = False
 
     if to_verify:
         # verify_data('../data/labels_ibug_300W_train_80.npz')
-        stats('../data/labels_ibug_300W_train_64.npz')
+        print('verifying data ')
+        verify_data('../data/labels_ibug_300W_train_80.npz')
     else:
-        image_size = 64
+        image_size = 80
         to_grayscale = False
         gen_val_data = False
         gen_train_data = True

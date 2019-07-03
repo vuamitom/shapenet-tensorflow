@@ -8,6 +8,8 @@ from nets.mobilenet import conv_blocks as ops
 from object_detection.utils import ops as od_ops
 from nets.mobilenet import mobilenet
 from object_detection.utils import context_manager
+import re
+
 expand_input = ops.expand_input_by_factor
 op = lib.op
 import math
@@ -72,7 +74,7 @@ def auxiliary_net(inputs, image_size, is_training=True):
             # print('auxiliary_net output', poses)
         return poses, nodes        
         
-def backbone_net(inputs, image_size, is_training=True, depth_multiplier=0.5):
+def backbone_net(inputs, image_size, is_training=True, depth_multiplier=0.5, **kwargs):
     
     pad_to_multiple = 10
     use_explicit_padding = False
@@ -91,16 +93,17 @@ def backbone_net(inputs, image_size, is_training=True, depth_multiplier=0.5):
             # 562×64Bottleneck 2 64 5 2
             op(slim.max_pool2d, kernel_size=[3, 3], padding='SAME', stride=1),
 
-            op(ops.expanded_conv, stride=2, num_outputs=64),            
+            op(ops.expanded_conv, stride=2, num_outputs=64, kernel_size=[3, 3]),            
         ]
     for _ in range(0, 4):
-        specs.append(op(ops.expanded_conv, stride=1, num_outputs=64))
+        specs.append(op(ops.expanded_conv, stride=1, num_outputs=64, kernel_size=[3, 3]))
 
     # 282×64Bottleneck212812
-    specs.append(op(ops.expanded_conv, stride=2, num_outputs=128))
+    specs.append(op(ops.expanded_conv, stride=2, num_outputs=128, kernel_size=[3, 3]))
 
     # 142×128Bottleneck412861    
-    for _ in range(0, 4):            
+    mid_conv_n = kwargs.get('mid_conv_n', 4)
+    for _ in range(0, mid_conv_n):            
         specs.append(op(ops.expanded_conv, 
             expansion_size=expand_input(4), 
             num_outputs=128,
@@ -155,10 +158,17 @@ def backbone_net(inputs, image_size, is_training=True, depth_multiplier=0.5):
                 # TODO
 
                 print('image image_features', image_features.keys())
-
-                layer_15 = image_features['layer_14']
-                layer_16 = image_features['layer_15']
-                layer_17 = image_features['layer_16']
+                all_layers = []
+                for layer_name in image_features.keys():
+                    if re.match('^layer_\\d+$', layer_name) is not None:
+                        all_layers.append(layer_name)
+                def layer_key(val):
+                    return int(val.split('_')[1])
+                all_layers.sort(key=layer_key)
+                print('all_layers', all_layers)
+                layer_15 = image_features[all_layers[-3]]
+                layer_16 = image_features[all_layers[-2]]
+                layer_17 = image_features[all_layers[-1]]
                 # batch_size = tf.shape(S1)[0]                
 
                 S1 = slim.flatten(layer_15, scope='S1flatten') # tf.reshape(S1, [batch_size, -1])
@@ -166,8 +176,8 @@ def backbone_net(inputs, image_size, is_training=True, depth_multiplier=0.5):
                 S3 = slim.flatten(layer_17, scope='S3flatten') # [batch_size, -1])
                 before_dense = tf.concat([S1, S2, S3], 1)
                 
-                for i in range(1, 17):
-                    print('layer_' + str(i), image_features['layer_' + str(i)])
+                for l in all_layers:
+                    print(l, image_features[l])
                 # print('layer_17', layer_17)
                 print('S1', S1)
                 print('S2', S2)
@@ -179,13 +189,15 @@ def backbone_net(inputs, image_size, is_training=True, depth_multiplier=0.5):
                                         weights_initializer=slim.xavier_initializer(),
                                         normalizer_fn=None, 
                                         activation_fn=tf.nn.tanh):
-                    pre_chin = slim.fully_connected(before_dense, 68)
-                    pre_left_eye_brow = slim.fully_connected(before_dense, 20)
-                    pre_right_eye_brow = slim.fully_connected(before_dense, 20)
-                    pre_nose = slim.fully_connected(before_dense, 36)
-                    pre_left_eye = slim.fully_connected(before_dense, 24)
-                    pre_right_eye = slim.fully_connected(before_dense, 24)
-                    pre_mouth = slim.fully_connected(before_dense, 80)
+                    fc_x = kwargs.get('fc_x_n', 2)
+                    print('fully_connected before last x ', fc_x)
+                    pre_chin = slim.fully_connected(before_dense, 34 * fc_x)
+                    pre_left_eye_brow = slim.fully_connected(before_dense, 10 * fc_x)
+                    pre_right_eye_brow = slim.fully_connected(before_dense, 10 * fc_x)
+                    pre_nose = slim.fully_connected(before_dense, 18 * fc_x)
+                    pre_left_eye = slim.fully_connected(before_dense, 12 * fc_x)
+                    pre_right_eye = slim.fully_connected(before_dense, 12 * fc_x)
+                    pre_mouth = slim.fully_connected(before_dense, 40 * fc_x)
 
                     chin = slim.fully_connected(pre_chin, 34)
                     left_eye_brow = slim.fully_connected(pre_left_eye_brow, 10)
@@ -200,7 +212,7 @@ def backbone_net(inputs, image_size, is_training=True, depth_multiplier=0.5):
 
 
 def predict_landmarks(inputs, image_size, is_training=True, depth_multiplier=0.5, aux_start_layer='layer_5', *args, **kwargs):
-    mobilenet_output, landmarks, unused = backbone_net(inputs, image_size, is_training=is_training, depth_multiplier=depth_multiplier)
+    mobilenet_output, landmarks, unused = backbone_net(inputs, image_size, is_training=is_training, depth_multiplier=depth_multiplier, **kwargs)
     # print('output = ', output)
     # print('layer 0', mobilenet_output['layer_0'])
     # print('layer 4/output ', mobilenet_output['layer_4/output'])

@@ -130,7 +130,7 @@ def train(data_path, save_path,
         print('add dependency on "moving avg" for batch_norm')        
         train_op = optimizer.minimize(loss, global_step) 
     
-    ds = DataSet(data_path, batch_size, image_size, class_weight_path=class_weight_path, zero_mean=predict_fn==pfld_custom_predict_landmarks)
+    ds = DataSet(data_path, batch_size, image_size, class_weight_path=class_weight_path, zero_mean=True)
     print('Done loading dataset')
 
     eval_ds=None
@@ -202,6 +202,7 @@ if __name__ == '__main__':
         predict_fn=pfld_custom_predict_landmarks,
         aux_start_layer='layer_7',       
         quantize=False, 
+        mid_conv_n=4,
         lr=0.0001) 
     # else:
     #     train('../data/labels_ibug_300W_train_112_grey.npz', 
