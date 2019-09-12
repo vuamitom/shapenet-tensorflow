@@ -141,7 +141,7 @@ if __name__ == '__main__':
     # 2960256451_1.jpg
     # '/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/testset/30427236_1.jpg'
     use_tflite = False
-    model = 'pfld-custom-80-025m-aux7-x3'
+    model = 'pfld-custom-80-025m-saux7-x3'
     # model = 'ailab'
     if model == 'pfld-64':
         predict_single('/home/tamvm/Downloads/test_face_tamvm_2.jpg', #'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
@@ -155,7 +155,7 @@ if __name__ == '__main__':
             image_size=112)
     elif model == 'pfld-80':
         predict_single('/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/testset/3035796193_1_mirror.jpg', #'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
-            '../../data/checkpoints-pfld-80-025m/pfld-333000',
+            '../../data/checkpoints-pfld-80-025m/pfld-449100',
             # '../../data/pfld-64.tflite',
             zero_mean=False,
             depth_multiplier=0.25,
@@ -187,14 +187,38 @@ if __name__ == '__main__':
             aux_start_layer='layer_7')
 
     elif model == 'pfld-custom-80-025m-aux7-x3':
-        predict_single('/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/testset/3035796193_1_mirror.jpg', #'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
-            '../../data/checkpoints-pfld-custom-80-025m-aux7-x3/pfld-98000',
+        predict_single( '/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/testset/3035796193_1_mirror.jpg', #'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
+            '../../data/checkpoints-pfld-custom-80-025m-aux7-x3/pfld-220000',
             predict_fn=pfld_custom_predict_landmarks,
             # '../../data/pfld-64.tflite',
             depth_multiplier=0.25,
             zero_mean=True,
             image_size=80,
             fc_x_n=3,
+            box_detector='tf',
+            aux_start_layer='layer_7')
+    elif model == 'pfld-custom-80-025m-saux7-x3':
+        predict_single( '/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/testset/3035796193_1_mirror.jpg', #'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
+            '../../data/checkpoints-pfld-custom-80-025m-saux7-x3/pfld-310500',
+            predict_fn=pfld_custom_predict_landmarks,
+            # '../../data/pfld-64.tflite',
+            depth_multiplier=0.25,
+            simple_aux=True,
+            zero_mean=True,
+            image_size=80,
+            fc_x_n=3,
+            box_detector='dlib',
+            aux_start_layer='layer_7')
+    elif model == 'pfld-custom-80-025m-aux7-x4-m3':
+        predict_single('/home/tamvm/Downloads/test_face_tamvm_2.jpg',# '/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/testset/3035796193_1_mirror.jpg', #'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
+            '../../data/checkpoints-pfld-custom-80-025m-aux7-x4-m3/pfld-131500',
+            predict_fn=pfld_custom_predict_landmarks,
+            # '../../data/pfld-64.tflite',
+            depth_multiplier=0.25,
+            zero_mean=True,
+            image_size=80,
+            fc_x_n=4,
+            mid_conv_n=3,
             box_detector='tf',
             aux_start_layer='layer_7')
     elif model == 'pfld-custom-80-025m-aux8':

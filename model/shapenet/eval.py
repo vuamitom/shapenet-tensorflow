@@ -33,7 +33,7 @@ def predict_tflite(data, model_path):
 def predict(data, model_path, pca_path, image_size=IMAGE_SIZE, in_channels=1, feature_extractor=extractors.original_paper_feature_extractor):
     input_shape = [None, image_size, image_size] if in_channels == 1 else [None, image_size, image_size, in_channels]
     inputs = tf.placeholder(tf.float32, shape=input_shape, name='input_images')
-    components = get_pcomps(pca_path)
+    components = get_pcomps(pca_path, 12)
     preds= predict_landmarks(inputs, components, feature_extractor=feature_extractor)    
     saver = tf.train.Saver()
     # g = tf.get_default_graph()
@@ -83,14 +83,14 @@ if __name__ == '__main__':
     # '/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/testset/30427236_1.jpg'
     model = 'shapenet-224-1-depthwise'
     if model == 'shapnet-224-1':
-        predict_single('/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
+        predict_single('/home/tamvm/Downloads/test_face_detect.jpg',#'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
             '../../data/checkpoints/shapenet-89000', 
             '../../data/unrot_train_pca.npz',
             image_size=224,
             in_channels=1)
     elif model == 'shapenet-224-1-depthwise':
-        use_tflite = True
-        predict_single('/home/tamvm/Downloads/test_face_tamvm_1.jpg',#'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
+        use_tflite = False
+        predict_single('/home/tamvm/Downloads/test_face_detect.jpg',#'/home/tamvm/Downloads/ibug_300W_large_face_landmark_dataset/helen/trainset/2960256451_1.jpg', 
             '../../data/checkpoints-depthwise/shapenet-20500' if not use_tflite else '../../data/shapenet-depthwise.tflite', 
             '../../data/unrot_train_pca.npz',
             image_size=224,

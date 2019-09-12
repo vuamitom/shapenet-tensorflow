@@ -19,6 +19,50 @@ def conv_hyperparams_fn(**kwargs):
     with tf.contrib.slim.arg_scope([]) as sc:
         return sc
 
+def original_auxiliary_net(inputs, image_size, is_training=True):
+    # TODO: handle is_training for slim.batch_norm
+    # print('----------inputs to auxiliary_net--------------', inputs)
+    nodes = []
+    with slim.arg_scope([slim.conv2d, slim.fully_connected],
+                    weights_initializer=slim.xavier_initializer(),
+                    normalizer_fn=slim.batch_norm,
+                    activation_fn=tf.nn.relu6):
+        with slim.arg_scope([slim.batch_norm], is_training=is_training, center=True, scale=True):
+            # net = slim.stack(inputs, conv2d_class, [(64, [7, 1]), (64, [1, 7])], scope='conv_1')
+            net = slim.conv2d(inputs, 128, [3, 3], stride=2, scope='aux_conv_1')
+            # print('after first conv2d', net)
+            nodes.append(net)
+            net = slim.conv2d(net, 128, [3, 3], stride=1, scope='aux_conv_2')
+            nodes.append(net)
+            # print('after second conv2d', net)
+            net = slim.conv2d(net, 32, [3, 3], stride=2, scope='aux_conv_3')
+            nodes.append(net)
+            # print('after second to last conv2d', net)
+            kernel_size = ([7, 7] if image_size==112 else ([5,5] if image_size == 80 else [4, 4]))
+            net = slim.conv2d(net, 128, kernel_size, stride=1, scope='aux_conv_4', padding='VALID')
+            nodes.append(net)
+
+            net = slim.flatten(net)
+            with slim.arg_scope([slim.fully_connected], normalizer_fn=None, activation_fn=tf.nn.tanh):
+                # print('after last conv2d', net)
+                net = slim.fully_connected(net, 32, scope='aux_fc_1', 
+                    normalizer_fn=slim.batch_norm,
+                    activation_fn=tf.nn.relu6)
+                nodes.append(net)
+                # print('after first full connected', net)
+                net = slim.fully_connected(net, 3, 
+                    scope='aux_fc_2', 
+                    normalizer_fn=slim.batch_norm,
+                    activation_fn=tf.nn.relu6)
+                nodes.append(net)
+            # print('after last full connected', net)
+            print('------ auxiliary_net-------')
+            for i in range(len(nodes)):
+                print('layer_' + str(i+1), nodes[i])
+            net = tf.reshape(net, [-1, 3])
+            print('auxiliary_net output', net)
+        return net, nodes 
+
 def auxiliary_net(inputs, image_size, is_training=True):
     # TODO: handle is_training for slim.batch_norm
     # print('----------inputs to auxiliary_net--------------', inputs)
@@ -220,7 +264,11 @@ def predict_landmarks(inputs, image_size, is_training=True, depth_multiplier=0.5
     # print('layer 15/output ', mobilenet_output['layer_15/output'])
     if is_training:
         print('auxiliary_net start layer = ', aux_start_layer)
-        pose, _ = auxiliary_net(mobilenet_output[aux_start_layer], image_size)
+        if kwargs.get('simple_aux', False):
+            print('Use original auxiliary_net')
+            pose, _ = original_auxiliary_net(mobilenet_output[aux_start_layer], image_size)
+        else:
+            pose, _ = auxiliary_net(mobilenet_output[aux_start_layer], image_size)
     else:
         pose = None
     return landmarks, pose, unused

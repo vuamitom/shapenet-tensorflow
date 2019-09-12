@@ -30,10 +30,11 @@ class Detector:
         # box = output_dict['detection_boxes'][0]
         box = self.interpreter.get_tensor(self.output_details[0]['index'])[0][0]
         score = self.interpreter.get_tensor(self.output_details[2]['index'])[0][0]
-        if score < 0.4:
+        if score < 0.51:
+            # print('low score, return none')
             return None 
         # score = output_dict['detection_scores'][0]
-        print('returning box ', box)
+        print('returning box ', box, ' score = ', score)
         # return None
         # return box 
         # left, top, right, bottom 

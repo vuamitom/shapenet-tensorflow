@@ -21,6 +21,7 @@ def rotate_fn(img, landmark, angle):
     rotated_img = cv2.warpAffine(img, rot_mat, (w, h))
     rotated_landmarks = np.asarray([(int(rot_mat[0][0]*x+rot_mat[0][1]*y+rot_mat[0][2]),
                  int(rot_mat[1][0]*x+rot_mat[1][1]*y+rot_mat[1][2])) for (x, y) in landmark])
+    print('shape after rotate = ', rotated_img.shape)
     return rotated_img, rotated_landmarks
 
 def safe_rotate(img, landmark, angle):
@@ -31,7 +32,7 @@ def safe_rotate(img, landmark, angle):
     h, w = rimg.shape[0], rimg.shape[1]
     for lm in rlmk:
         x, y = lm 
-        if x < 0 or x > w or y < 0 or y > h:
+        if x < 0 or x >  w or y < 0 or y > h:
             # print('rotation went out of frame when rotate', angle , 'fallback to rotate only ', fallback_angle, 'x vs w, y vs h', x, w, y, h)
             # return rotate(img, landmark, fallback_angle)
             return img, landmark
@@ -88,30 +89,41 @@ def load_img(img_path):
 
 def crop_with_boundingbox(img, lmks, bbox):
     l, t, r, b = bbox 
+    # l = l if l >=0 else 0
+    # t = t if t >=0 else 0
     img = img[t:b, l:r]
     lmks = lmks - np.array([l, t])
     return img, lmks
 
 def crop(img, lmks, crop_offset=CROP_OFFSET, is_gray=True):
     
-    min_y, max_y = lmks[:,1].min(), lmks[:,1].max()
-    min_x, max_x = lmks[:,0].min(), lmks[:,0].max() 
+    min_y, max_y = int(lmks[:,1].min()), int(lmks[:,1].max())
+    min_x, max_x = int(lmks[:,0].min()), int(lmks[:,0].max()) 
+    print('....',min_y, min_x, max_y, max_x)
     # crop img data
-    offset = int((max_x - min_x) * CROP_OFFSET)
+    offset = int((max_y - min_y) * CROP_OFFSET)
     min_y, max_y = min_y - offset, max_y + offset
+
+    offset = int((max_x - min_x) * CROP_OFFSET)
     min_x, max_x = min_x - offset, max_x + offset
+
     min_y = min_y if min_y > 0 else 0
     min_x = min_x if min_x > 0 else 0
+    # assert min_y <= max_y
     max_x = max_x if max_x < img.shape[1] else img.shape[1]
     max_y = max_y if max_y < img.shape[0] else img.shape[0]
+
+    # assert min_y <= max_y
     # print ('crop bound ', min_y, min_x, (max_x - min_x), (max_y - min_y))
     if is_gray:
         img = img[min_y:max_y, min_x:max_x]
     else:
+        print(img.shape)
+        print(min_y, min_x, max_y, max_x)
         img = img[min_y:max_y, min_x:max_x, :]
     # crop lmks
     lmks = lmks - np.array([min_x, min_y])
-    return img, lmks
+    return img, lmks, (min_x, min_y, max_x, max_y)
 
 def grayscale(img):
     return rgb2gray(img)# .reshape(img.shape[:-1], 1)
@@ -156,7 +168,7 @@ def estimate_pose(frame, landmarks):
 
 def crop_and_resize(img, lmks, img_size, bbox=None):
         if bbox is None:
-            img, lmks = crop(img, lmks, is_gray=to_grayscale)
+            img, lmks, _ = crop(img, lmks, is_gray=to_grayscale)
         else:
             img, lmks = crop_with_boundingbox(img, lmks, bbox)
         # view_img(img, lmks)
@@ -164,6 +176,17 @@ def crop_and_resize(img, lmks, img_size, bbox=None):
         img   = resize(img, (img_size, img_size), anti_aliasing=True, mode='reflect') 
         return img, lmks
 
+def singleout_face(face_detector, img, lmks):
+    temp_img, _, base_box = crop(img, lmks, crop_offset=0.2, is_gray=False)
+    bbox = face_detector.detect_cv(temp_img)
+    if bbox is None:
+        return bbox
+    else:
+        r = (bbox[0] + base_box[0], bbox[1] + base_box[1], bbox[2] + base_box[0], bbox[3] + base_box[1])
+        for x in list(r):
+            if x < 0:
+                return None
+        return r
 # def ensure_lmk_in_bound(lmks, w, h):
 def read_data(lmk_xml, img_size, to_grayscale=True, rotate=True, include_pose=True, use_gt_box=False):    
     base_dir = os.path.dirname(lmk_xml)
@@ -174,19 +197,22 @@ def read_data(lmk_xml, img_size, to_grayscale=True, rotate=True, include_pose=Tr
     else:
         no_augmented = 2
 
+    no_samples = len(imgs) * no_augmented * 2
+
     if to_grayscale:
-        data = np.ndarray((len(imgs) * no_augmented, img_size, img_size), dtype=np.float32)
+        data = np.ndarray((no_samples, img_size, img_size), dtype=np.float32)
     else:
-        data = np.ndarray((len(imgs) * no_augmented, img_size, img_size, 3), dtype=np.float32)
-    labels = np.ndarray((len(imgs)* no_augmented, *points[0].shape), dtype=np.float32)
+        data = np.ndarray((no_samples, img_size, img_size, 3), dtype=np.float32)
+    labels = np.ndarray((no_samples, *points[0].shape), dtype=np.float32)
     pose_labels = None 
     if include_pose:
-        pose_labels = np.ndarray((len(imgs)* no_augmented, 3), dtype=np.float32)
-    meta = np.ndarray((len(imgs) * no_augmented, ), dtype=np.int32)
+        pose_labels = np.ndarray((no_samples, 3), dtype=np.float32)
+    meta = np.ndarray((no_samples, ), dtype=np.int32)
     face_detector = get_face_detector()
 
     for i in range(0, len(imgs)):        
-        # if not i == 1: continue
+        # if not i < 1233: continue
+        print('i = ', i)
         img_path = os.path.join(base_dir, imgs[i])
         _, _, bound= img_sizes[i]
 
@@ -196,27 +222,62 @@ def read_data(lmk_xml, img_size, to_grayscale=True, rotate=True, include_pose=Tr
 
         original_lmks = points[i]        
         # view_img(original_im, original_lmks)
-        bbox = face_detector.detect_cv(original_im)
+        bbox = singleout_face(face_detector, original_im, original_lmks)
+        # test = False
+        # if bbox is not None and (bbox[0] < 0 or bbox[1] < 0):
+        #     # view_img(original_im, original_lmks)
+        #     print('err ', img_path, bbox)
+        #     test = True
         img, lmks = crop_and_resize(original_im, original_lmks, img_size, bbox)  
         # print(lmks) 
         # break 
         poses = None if not include_pose else estimate_pose(img, lmks)
-        view_img(img, lmks)     
+        # if test:
+        # view_img(img, lmks)
+        #     return None      
         fl_img, fl_lmks = flip(img, lmks)        
         fl_poses = None if not include_pose else estimate_pose(fl_img, fl_lmks)
-        view_img(fl_img, fl_lmks)
+        # view_img(fl_img, fl_lmks)
 
         # print ('im size = ', im.shape, ' original ', original_im.shape)
         # make sure that face is at the center
         # original_im, original_lmks = crop(original_im, original_lmks, 0.4)
         gen_imgs = [(img, lmks, poses), (fl_img, fl_lmks, fl_poses)]
+
+        # add gt box data for training 
+        # if bbox is not None:
+        gt_img, gt_lmks = crop_and_resize(original_im, original_lmks, img_size)
+        # gt_poses = None if not include_pose else estimate_pose(gt_img, gt_lmks)
+        gt_fl_img, gt_fl_lmks = flip(gt_img, gt_lmks)        
+        # gt_fl_poses = None if not include_pose else estimate_pose(gt_fl_img, gt_fl_lmks)
+        gen_imgs.append((gt_img, gt_lmks, poses))
+        gen_imgs.append((gt_fl_img, gt_fl_lmks, fl_poses))
+            # view_img(gt_img, gt_lmks)
+            # view_img(gt_fl_img, gt_fl_lmks)
+
         if rotate:
-            rot_img, rot_lmk = rotate_fn(original_im, original_lmks, random.choice([5, 10, 15, 20, 30, -5, -10, -15, -20, -30]))        
-            bbox = face_detector.detect_cv(rot_img)         
-            rot_img, rot_lmk = crop_and_resize(rot_img, rot_lmk, img_size, bbox)
+            rot_angle = random.choice([5, 10, 15, 20, 30, -5, -10, -15, -20, -30])
+            print('rot angle = ', rot_angle)
+            ori_rot_img, ori_rot_lmk = rotate_fn(original_im, original_lmks, rot_angle)        
+            bbox = singleout_face(face_detector, ori_rot_img, ori_rot_lmk)         
+            if bbox is not None and (bbox[0] < 0 or bbox[1] < 0):
+                view_img(ori_rot_img, ori_rot_lmk)
+                print('err', img_path)
+            
+
+            rot_img, rot_lmk = crop_and_resize(ori_rot_img, ori_rot_lmk, img_size, bbox)
+            # print('print rotate')
+            # view_img(rot_img, rot_lmk)
+
             rot_poses = None if not include_pose else estimate_pose(rot_img, rot_lmk)
             gen_imgs.append((rot_img, rot_lmk, rot_poses))
-            view_img(rot_img, rot_lmk)
+
+            # if bbox is not None:
+                # print('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAa')
+            gt_rot_img, gt_rot_lmk = crop_and_resize(ori_rot_img, ori_rot_lmk, img_size)
+            # gt_rot_poses = estimate_pose(gt_rot_img, gt_rot_lmk)
+            gen_imgs.append((gt_rot_img, gt_rot_lmk, rot_poses))
+                # view_img(gt_rot_img, gt_rot_lmk)
         # rot_img_ccw, rot_lmk_ccw = safe_rotate(original_im, original_lmks, random.choice([-5, -10, -15, -20]))        
         # view_img(rot_img, rot_lmk, is_gray=to_grayscale)
         # rot_img_ccw, rot_lmk_ccw = crop_and_resize(rot_img_ccw, rot_lmk_ccw, img_size)
@@ -228,7 +289,7 @@ def read_data(lmk_xml, img_size, to_grayscale=True, rotate=True, include_pose=Tr
                 # print(gen_img[2])
                 pose_labels[i* no_augmented + idx] = gen_img[2]
         meta[i*no_augmented:(i*no_augmented + len(gen_imgs))] = i 
-        return None
+        # return None
         if i % 300 == 0:
             print('processed ', (i+1), '/', len(imgs), ' images')
     return data, labels, pose_labels, meta
@@ -378,8 +439,8 @@ def stats(path):
         # print ('scores = ', stats)
         print ('stats = ', stats)
         # increase 
-        stats[1] = stats[1] * 4
-        stats[2] = stats[2] * 4
+        # stats[1] = stats[1] * 4
+        # stats[2] = stats[2] * 4
         print ('after increase scores for left and right turn')
         print('stats = ', stats)
         for s in range(0, ds['poses'].shape[0]):
@@ -409,12 +470,12 @@ def stats(path):
 
 if __name__ == '__main__':
     # preprocess train data
-    to_verify = False
+    to_verify = True
 
     if to_verify:
         # verify_data('../data/labels_ibug_300W_train_80.npz')
         print('verifying data ')
-        verify_data('../data/labels_ibug_300W_train_80.npz')
+        stats('../data/labels_ibug_300W_train_80.npz')
     else:
         image_size = 80
         to_grayscale = False
