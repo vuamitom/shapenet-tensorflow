@@ -4,3 +4,4 @@
 
 Note:
 - depthwise conv2d results in much smaller model
+- More explanation can be found in this [post](https://vuamitom.github.io/2019/09/12/shapenet-face-landmark-tensorflow.html)
